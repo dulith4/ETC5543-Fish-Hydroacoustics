@@ -104,5 +104,29 @@ print(p4)
 ggsave("figures/04_girth_comparison.png", p4, width = 8, height = 6)
 
 
+# Air bladder length comparison
+p5 <- ggplot(fish_data, aes(x = species, y = airbladderTotalLength, fill = species)) +
+  geom_boxplot() +
+  labs(title = "Air Bladder Length by Species",
+       x = "Species",
+       y = "Air Bladder Length (mm)") +
+  theme_minimal()
+
+print(p5)
+ggsave("figures/05_airbladder_length.png", p5, width = 8, height = 6)
+
+
+# Air bladder width comparison
+p6 <- ggplot(fish_data, aes(x = species, y = airBladderWidth, fill = species)) +
+  geom_boxplot() +
+  labs(title = "Air Bladder Width by Species",
+       x = "Species",
+       y = "Air Bladder Width (mm)") +
+  theme_minimal()
+
+print(p6)
+ggsave("figures/06_airbladder_width.png", p6, width = 8, height = 6)
+
+
 
 
