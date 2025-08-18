@@ -128,5 +128,15 @@ print(p6)
 ggsave("figures/06_airbladder_width.png", p6, width = 8, height = 6)
 
 
+# Air bladder ratio (length/width)
+fish_data <- fish_data %>%
+  mutate(airbladder_ratio = airbladderTotalLength / airBladderWidth)
 
+p7 <- ggplot(fish_data, aes(x = species, y = airbladder_ratio, fill = species)) +
+  geom_boxplot() +
+  labs(title = "Air Bladder Ratio (Length / Width) by Species",
+       x = "Species", y = "Ratio") +
+  theme_minimal()
+print(p7)
+ggsave("figures/07_airbladder_ratio.png", p7, width = 8, height = 6)
 
