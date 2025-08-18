@@ -92,3 +92,17 @@ p3 <- ggplot(fish_data, aes(x = Target_true_depth, fill = species)) +
 print(p3)
 ggsave("figures/03_depth_distribution.png", p3, width = 8, height = 6)
 
+# Girth comparison
+p4 <- ggplot(fish_data, aes(x = species, y = girth, fill = species)) +
+  geom_boxplot() +
+  labs(title = "Fish Girth by Species",
+       x = "Species",
+       y = "Girth (mm)") +
+  theme_minimal()
+
+print(p4)
+ggsave("figures/04_girth_comparison.png", p4, width = 8, height = 6)
+
+
+
+
