@@ -10,6 +10,7 @@ rm(list = ls())
 
 # Load packages
 library(tidyverse)
+library(forcats)
 
 # Create folders
 if (!dir.exists("figures")) dir.create("figures")
@@ -42,7 +43,7 @@ for(var in key_vars) {
   }
 }
 
-# Look at size differences
+# Look at size differences (Average Length and Weights & Counts by Species)
 cat("\nSize summary by species:\n")
 size_summary <- fish_data |>
   group_by(species) |>
@@ -140,3 +141,43 @@ p7 <- ggplot(fish_data, aes(x = species, y = airbladder_ratio, fill = species)) 
 print(p7)
 ggsave("figures/07_airbladder_ratio.png", p7, width = 8, height = 6)
 
+
+# Species proportion by region
+
+# --- Clean region labels (keep just the numeric ID) ---
+fish_data <- fish_data %>%
+  mutate(
+    region_short = gsub("^\\s*Region_\\s*", "", Region_name) |> trimws()
+  )
+
+# --- Counts and proportions by region × species ---
+region_species <- fish_data %>%
+  count(region_short, species, name = "n") %>%
+  group_by(region_short) %>%
+  mutate(prop = n / sum(n)) %>%
+  ungroup()
+
+# --- Force numeric ordering on the y-axis ---
+region_species_num <- region_species %>%
+  mutate(region_num = readr::parse_number(region_short)) %>%
+  filter(!is.na(region_num))
+
+num_levels <- sort(unique(region_species_num$region_num))
+
+region_species_num <- region_species_num %>%
+  mutate(region_id = factor(region_num, levels = num_levels))  # ordered factor 1..N
+
+# --- Plot ---
+p_region_species <- ggplot(region_species_num,
+                           aes(x = prop, y = region_id, fill = species)) +
+  geom_col(color = "white", linewidth = 0.2) +
+  geom_vline(xintercept = 0.5, linetype = "dashed", linewidth = 0.2) +
+  scale_x_continuous(labels = scales::percent_format(accuracy = 1)) +
+  labs(title = "Species Proportion by Region (Region order)",
+       x = "Proportion", y = "Region") +
+  theme_minimal() +
+  theme(axis.text.y = element_text(size = 6))
+
+print(p_region_species)
+ggsave("figures/species_proportion_by_region.png",
+       p_region_species, width = 9, height = 12, dpi = 200)
