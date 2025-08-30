@@ -45,7 +45,19 @@ load_fish_transformed <- function(
   
   # (b) forkLength came in as character in glimpse — parse to numeric
   if ("forkLength" %in% names(df) && !is.numeric(df$forkLength)) {
-    df <- df |> mutate(forkLength = readr::parse_number(forkLength))
+    df <- df |>
+      mutate(
+        forkLength = {
+          x <- as.character(forkLength)
+          x <- stringr::str_trim(x)
+          # common non-numeric tokens → NA
+          x[x %in% c("", "-", "--", ".", "NA", "N/A", "na", "NaN", "null", "NULL")] <- NA_character_
+          suppressWarnings(readr::parse_number(
+            x,
+            locale = readr::locale(decimal_mark = ".", grouping_mark = ",")
+          ))
+        }
+      )
   }
   
   # (c) Factor labels for simple codes 

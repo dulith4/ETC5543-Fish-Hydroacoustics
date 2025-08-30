@@ -47,3 +47,11 @@ po/*~
 
 # RStudio Connect folder
 rsconnect/
+
+# --- outputs policy ---
+# ignore local caches only
+outputs/cache/
+
+# keep the folder around in fresh clones
+!outputs/.gitkeep
+
