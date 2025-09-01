@@ -57,5 +57,6 @@ outputs/cache/
 
 # Derived feature table (rebuild via Analysis/02_feature_engineering.R)
 outputs/tables/reg_freq_quintiles_wide.rds
+outputs/tables/fish_freq_quintiles_long.rds
 
 

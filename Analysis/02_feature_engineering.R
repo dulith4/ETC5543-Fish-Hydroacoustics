@@ -29,7 +29,8 @@ stat_funs <- list(
   q40 = qfun(.40),
   q50 = qfun(.50),   # median
   q60 = qfun(.60),
-  q80 = qfun(.80)
+  q80 = qfun(.80),
+  q100 = qfun(1.00)
 )
 
 # 3) per-Region (and species) summaries, wide format
@@ -44,6 +45,5 @@ reg_freq_quintiles_wide <- fish_raw %>%
 # 4) save outputs (tracked in Git; cache is not)
 dir.create("outputs/tables", recursive = TRUE, showWarnings = FALSE)
 saveRDS(reg_freq_quintiles_wide, "outputs/tables/reg_freq_quintiles_wide.rds", compress = "xz")
-readr::write_csv(reg_freq_quintiles_wide, "outputs/tables/reg_freq_quintiles_wide.csv")
 
-cat("Wrote:\n  - outputs/tables/reg_freq_quintiles_wide.rds\n  - outputs/tables/reg_freq_quintiles_wide.csv\n")
+
