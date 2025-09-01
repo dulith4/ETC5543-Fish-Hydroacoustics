@@ -74,10 +74,17 @@ load_fish_transformed <- function(
     df <- df |> mutate(across(all_of(freq_cols), ~ suppressWarnings(as.numeric(.x))))
   }
   
-  # optional ordering within region
-  if (all(c("Region_name","Ping_time_sec") %in% names(df))) {
-    df <- df |> arrange(Region_name, Ping_time_sec)
+  # ensure Region exists (unique fish + region) if not already present
+  if (!"Region" %in% names(df) && all(c("fishNum","Region_name") %in% names(df))) {
+    df <- df |> dplyr::mutate(Region = factor(paste0(fishNum, ".", Region_name)))
   }
+  
+  
+  # optional ordering within region (use unique Region)
+  if (all(c("Region","Ping_time_sec") %in% names(df))) {
+    df <- df |> dplyr::arrange(Region, Ping_time_sec)
+  }
+  
   
   # 3) cache (smaller, compressed)
   if (use_cache) saveRDS(df, cache_path, compress = "xz")
