@@ -55,3 +55,7 @@ outputs/cache/
 # keep the folder around in fresh clones
 !outputs/.gitkeep
 
+# Derived feature table (rebuild via Analysis/02_feature_engineering.R)
+outputs/tables/reg_freq_quintiles_wide.rds
+
+
