@@ -173,3 +173,76 @@ p_trans <- ggplot(trans_summary,
   theme(legend.position = "top")
 
 ggsave("figures/transformed_FRC.png", p_trans, width = 8, height = 4.8, dpi = 300)
+
+
+# ---- 5c) Quintile-only FRC (all species combined) ---------------------------
+# Goal: show that the 5 quintiles form distinct acoustic levels even when species are ignored
+
+# Standardise quintile to 1..5 from the long table, then summarise across species
+quintile_overall <- fish_quint_long |>
+  mutate(
+    qnum = readr::parse_number(as.character(quintile)),
+    qnum = dplyr::case_when(
+      qnum %in% 1:5            ~ qnum,              # already 1..5
+      qnum > 0 & qnum <= 1     ~ round(qnum * 5),   # proportions -> 1..5
+      qnum > 1 & qnum <= 100   ~ pmax(1, pmin(5, round(qnum / 20))),  # percentages
+      TRUE ~ NA_real_
+    )
+  ) |>
+  filter(!is.na(qnum)) |>
+  group_by(qnum, freq_khz) |>
+  summarise(
+    mean_TS = mean(val, na.rm = TRUE),
+    se_TS   = sd(val,   na.rm = TRUE) / sqrt(dplyr::n()),
+    .groups = "drop"
+  ) |>
+  mutate(
+    quintile = factor(
+      qnum, levels = 1:5,
+      labels = c("Q1 (lowest)", "Q2", "Q3", "Q4", "Q5 (highest)")
+    )
+  )
+
+# Save table for the report
+readr::write_csv(quintile_overall, "outputs/tables/quintile_overall_freq_summary.csv")
+
+# Quick coverage table (how many fish contributions per quintile)
+quintile_counts <- fish_quint_long |>
+  mutate(qnum = readr::parse_number(as.character(quintile))) |>
+  mutate(
+    qnum = dplyr::case_when(
+      qnum %in% 1:5 ~ qnum,
+      qnum > 0 & qnum <= 1   ~ round(qnum * 5),
+      qnum > 1 & qnum <= 100 ~ pmax(1, pmin(5, round(qnum / 20))),
+      TRUE ~ NA_real_
+    )
+  ) |>
+  filter(!is.na(qnum)) |>
+  distinct(fishNum, qnum) |>
+  count(qnum, name = "n_fish") |>
+  mutate(
+    quintile = factor(qnum, levels = 1:5,
+                      labels = c("Q1 (lowest)", "Q2", "Q3", "Q4", "Q5 (highest)"))
+  ) |>
+  arrange(qnum)
+
+readr::write_csv(quintile_counts, "outputs/tables/quintile_counts_overall.csv")
+
+# Plot: mean ± SE ribbons per quintile (species ignored)
+p_quint_overall <- ggplot(quintile_overall,
+                          aes(x = freq_khz, y = mean_TS,
+                              colour = quintile, fill = quintile, group = quintile)) +
+  geom_line(linewidth = 0.6) +
+  geom_ribbon(aes(ymin = mean_TS - se_TS, ymax = mean_TS + se_TS),
+              alpha = 0.18, colour = NA) +
+  scale_x_continuous("Frequency (kHz)", breaks = scales::pretty_breaks()) +
+  labs(y = "Mean Target Strength (dB)",
+       title = "Average FRC by Quintile (all species combined)",
+       subtitle = "Five quintiles show distinct acoustic levels; ribbons are mean ± SE",
+       colour = "Quintile", fill = "Quintile") +
+  theme_minimal(base_size = 11) +
+  theme(legend.position = "top")
+
+ggsave("figures/quintile_only_FRC.png", p_quint_overall, width = 8, height = 4.8, dpi = 300)
+
+
