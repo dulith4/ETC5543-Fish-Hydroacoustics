@@ -98,3 +98,22 @@ git commit -m "Update dataset"
 git push
 
 ```
+
+## Reproducibility (renv)
+
+This repo pins package versions with **renv**.
+
+### Restore the environment
+```r
+install.packages("renv")
+renv::restore()   # installs the exact package versions from renv.lock
+
+## How to run (end-to-end)
+
+```bash
+git lfs install
+git lfs pull
+R -e "install.packages('renv'); renv::restore()"
+
+Rscript Analysis/03_classification_original.R
+
