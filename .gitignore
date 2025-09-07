@@ -59,4 +59,11 @@ outputs/cache/
 outputs/tables/reg_freq_quintiles_wide.rds
 outputs/tables/fish_freq_quintiles_long.rds
 
+# === Ignore derived outputs (predictions, leaderboards, models) ===
 
+# Ignore model binaries
+outputs/models/**
+
+# Ignore only timestamped CSV/RDS files (e.g. *_20250904_162038.csv)
+outputs/tables/*_[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]_*.csv
+outputs/tables/*_[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]_*.rds

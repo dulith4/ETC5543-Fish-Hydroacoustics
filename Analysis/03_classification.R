@@ -1,0 +1,167 @@
+# ==============================================================================
+# ETC5543 Fish Hydroacoustics - Classification (FRC quintiles, minimal console)
+# ==============================================================================
+# Target: species
+# Features: F45–F170 (per fishNum × quantile rows; no morphometrics)
+# Split: 60/20/20 grouped by fishNum, stratified by species
+# Saves: leaderboard, predictions (valid/test), best model
+# ==============================================================================
+
+# ---- 0. Setup ----
+rm(list = ls())
+
+seed <- 20250904
+
+suppressPackageStartupMessages({
+  library(tidyverse)
+  library(h2o)
+  library(glue)
+  library(readr)
+  library(forcats)
+})
+
+dir.create("outputs", showWarnings = FALSE)
+dir.create("outputs/tables", showWarnings = FALSE, recursive = TRUE)
+dir.create("outputs/models", showWarnings = FALSE, recursive = TRUE)
+
+utils_path <- "Analysis/utils_data.R"
+if (file.exists(utils_path)) source(utils_path)
+
+# ---- 1. Load transformed features ----
+path_features <- "outputs/tables/fish_freq_quintiles_long.rds"
+dat <- readRDS(path_features) %>%
+  mutate(
+    species  = fct_drop(as.factor(species)),
+    fishNum  = as.character(fishNum),
+    quantile = as.factor(quantile)
+  )
+
+# Identify feature columns (all frequency columns)
+feature_cols <- names(dat)[grepl("^F\\d", names(dat))]
+stopifnot(length(feature_cols) > 0)
+
+# ---- 2. Fish-level, species-stratified split (60/20/20) ----
+set.seed(seed)
+fish_ids <- dat |> distinct(fishNum, species)
+
+split_species_ids <- function(df_ids, p_train = 0.6, p_valid = 0.2, seed = 1) {
+  vec_ids <- df_ids$fishNum
+  n <- length(vec_ids)
+  set.seed(seed)
+  idx <- sample(n)
+  
+  n_train <- floor(p_train * n)
+  n_valid <- floor(p_valid * n)
+  n_test  <- n - n_train - n_valid
+  
+  if (n_train == 0 || n_valid == 0 || n_test == 0) {
+    # fallback to avoid empty groups
+    n_train <- max(1, floor(0.70 * n))
+    n_valid <- max(1, floor(0.15 * n))
+    n_test  <- max(1, n - n_train - n_valid)
+  }
+  
+  train_ids <- vec_ids[idx[seq_len(n_train)]]
+  valid_ids <- vec_ids[idx[seq(n_train + 1, length.out = n_valid)]]
+  test_ids  <- vec_ids[idx[seq(n_train + n_valid + 1, length.out = n_test)]]
+  
+  tibble(
+    fishNum = c(train_ids, valid_ids, test_ids),
+    split   = c(rep("train", length(train_ids)),
+                rep("valid", length(valid_ids)),
+                rep("test",  length(test_ids)))
+  )
+}
+
+split_map <- fish_ids |>
+  group_split(species) |>
+  purrr::map_dfr(~ split_species_ids(.x, p_train = 0.6, p_valid = 0.2, seed = seed))
+
+dat_s <- dat |> left_join(split_map, by = "fishNum")
+stopifnot(!any(is.na(dat_s$split)))
+
+# ---- 3. Prep H2O frames ----
+h2o.init()
+
+cols_keep <- c("species", "fishNum", "quantile", feature_cols)
+
+train_df <- dat_s %>% filter(split == "train") %>% select(all_of(cols_keep))
+valid_df <- dat_s %>% filter(split == "valid") %>% select(all_of(cols_keep))
+test_df  <- dat_s %>% filter(split == "test")  %>% select(all_of(cols_keep))
+
+train_h2o <- as.h2o(train_df)
+valid_h2o <- as.h2o(valid_df)
+test_h2o  <- as.h2o(test_df)
+
+y <- "species"
+x <- feature_cols
+
+train_h2o[[y]] <- as.factor(train_h2o[[y]])
+valid_h2o[[y]] <- as.factor(valid_h2o[[y]])
+test_h2o[[y]]  <- as.factor(test_h2o[[y]])
+
+# ---- 4. AutoML (short budget, simple first pass) ----
+runtime_secs <- 300
+
+aml <- h2o.automl(
+  x = x, y = y,
+  training_frame    = train_h2o,
+  validation_frame  = valid_h2o,
+  leaderboard_frame = test_h2o,
+  max_runtime_secs  = runtime_secs,
+  nfolds            = 0,
+  sort_metric       = "AUC",
+  seed              = seed
+)
+
+leader <- aml@leader
+timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
+
+# Save leaderboard (no printing)
+lb <- as.data.frame(aml@leaderboard)
+write_csv(lb, glue("outputs/tables/automl_leaderboard_{timestamp}.csv"))
+saveRDS(lb,  glue("outputs/tables/automl_leaderboard_{timestamp}.rds"))
+
+# ---- 5. Key metrics only (VALID & TEST) ----
+perf_valid <- h2o.performance(leader, newdata = valid_h2o)
+perf_test  <- h2o.performance(leader, newdata = test_h2o)
+
+# Find numeric thresholds that maximise F1, then use them
+thr_v <- h2o.find_threshold_by_max_metric(perf_valid, "f1")
+thr_t <- h2o.find_threshold_by_max_metric(perf_test,  "f1")
+
+# numeric accuracy at the chosen thresholds (coerce from list -> numeric)
+acc_valid <- as.numeric(unlist(h2o.accuracy(perf_valid, thresholds = thr_v)))
+acc_test  <- as.numeric(unlist(h2o.accuracy(perf_test,  thresholds = thr_t)))
+
+cat("\n==== VALIDATION ====\n")
+cat("AUC: ", h2o.auc(perf_valid), "\n", sep = "")
+cat("Threshold (max F1): ", thr_v, "\n", sep = "")
+cat("Accuracy (thr=max_f1): ", sprintf("%.4f", acc_valid), "\n", sep = "")
+cm_valid <- as.data.frame(h2o.confusionMatrix(perf_valid, thresholds = thr_v))
+print(cm_valid)
+
+cat("\n==== TEST ====\n")
+cat("AUC: ", h2o.auc(perf_test), "\n", sep = "")
+cat("Threshold (max F1): ", thr_t, "\n", sep = "")
+cat("Accuracy (thr=max_f1): ", sprintf("%.4f", acc_test), "\n", sep = "")
+cm_test <- as.data.frame(h2o.confusionMatrix(perf_test, thresholds = thr_t))
+print(cm_test)
+
+# ---- 6. Predictions (saved, not printed) ----
+pred_valid <- as.data.frame(h2o.predict(leader, valid_h2o)) %>%
+  bind_cols(as.data.frame(valid_h2o)[, c("fishNum", "species", "quantile")])
+
+pred_test <- as.data.frame(h2o.predict(leader, test_h2o)) %>%
+  bind_cols(as.data.frame(test_h2o)[, c("fishNum", "species", "quantile")])
+
+write_csv(pred_valid, glue("outputs/tables/predictions_valid_{timestamp}.csv"))
+saveRDS(pred_valid, glue("outputs/tables/predictions_valid_{timestamp}.rds"))
+write_csv(pred_test,  glue("outputs/tables/predictions_test_{timestamp}.csv"))
+saveRDS(pred_test,  glue("outputs/tables/predictions_test_{timestamp}.rds"))
+
+# ---- 7. Save best model (path only, no print spam) ----
+saved_path <- h2o.saveModel(leader, path = "outputs/models", force = TRUE)
+invisible(h2o.download_mojo(leader, path = "outputs/models", get_genmodel_jar = TRUE))
+
+cat(glue("\nSaved model: {saved_path}\n"))
