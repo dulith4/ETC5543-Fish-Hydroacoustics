@@ -67,3 +67,7 @@ outputs/models/**
 # Ignore only timestamped CSV/RDS files (e.g. *_20250904_162038.csv)
 outputs/tables/*_[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]_*.csv
 outputs/tables/*_[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]_*.rds
+
+# generated ROC images (not tracked)
+figures/roc_*.png
+
