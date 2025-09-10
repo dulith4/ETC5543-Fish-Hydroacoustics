@@ -4,7 +4,11 @@ suppressPackageStartupMessages({
   library(glue)
 })
 
-# find latest file by timestamp in name (YYYYMMDD_HHMMSS) or fall back to mtime
+# ------------------------------------------------------------------------------
+# Core helpers
+# ------------------------------------------------------------------------------
+
+# Find latest file by timestamp in name (YYYYMMDD_HHMMSS) or fall back to mtime
 .latest <- function(dirs, pattern) {
   paths <- unlist(lapply(dirs, function(d) {
     if (dir.exists(d)) list.files(d, pattern = pattern, full.names = TRUE) else character(0)
@@ -23,6 +27,7 @@ suppressPackageStartupMessages({
   paths[order(ts, decreasing = TRUE)][1]
 }
 
+# Load leaderboard/preds saved by our scripts
 load_leaderboard <- function(run = c("original","fishlevel")) {
   run <- match.arg(run)
   path <- .latest("outputs/tables", glue("^leaderboard_{run}_\\d{{8}}_\\d{{6}}\\.rds$"))
@@ -39,7 +44,7 @@ load_preds <- function(run = c("original","fishlevel")) {
   preds
 }
 
-# open ROC image if it exists (searches both outputs/figures and root figures/)
+# Open ROC image if it exists (searches both outputs/figures and root figures/)
 show_roc <- function(run = c("original","fishlevel"), open = TRUE) {
   run <- match.arg(run)
   path <- .latest(c("outputs/figures","figures"), glue("^roc_{run}_\\d{{8}}_\\d{{6}}\\.png$"))
@@ -48,7 +53,26 @@ show_roc <- function(run = c("original","fishlevel"), open = TRUE) {
   invisible(path)
 }
 
-# summarize predictions using the saved argmax labels (not the CV-F1 threshold)
+# Choose probability column for the positive class (works for H2O outputs)
+.prob_col <- function(df, positive = "SMB") {
+  n <- names(df)
+  if (positive %in% n) return(positive)
+  if ("p1" %in% n) return("p1")
+  if ("TRUE" %in% n) return("TRUE")
+  stop("No probability column for class '", positive, "'.")
+}
+
+# AUC from probabilities (simple trapezoid ROC; no extra packages)
+auc_from_probs <- function(truth, prob, positive = "SMB") {
+  y <- as.integer(truth == positive)
+  o <- order(prob, decreasing = TRUE)
+  tp <- cumsum(y[o]); fp <- cumsum(1 - y[o])
+  tpr <- tp / sum(y)
+  fpr <- fp / sum(1 - y)
+  sum(diff(c(0, fpr)) * (head(c(0, tpr), -1) + tail(c(0, tpr), -1)) / 2)
+}
+
+# Summarize predictions using saved argmax labels (column 'pred_label')
 summarize_preds <- function(preds) {
   stopifnot(all(c("species","pred_label") %in% names(preds)))
   tab <- table(actual = preds$species, pred = preds$pred_label)
@@ -66,8 +90,10 @@ summarize_preds <- function(preds) {
   list(accuracy = acc, confusion = tab, by_class = byc)
 }
 
-# one-call viewer
-view_results <- function(run = c("original","fishlevel"), open_roc = TRUE, n_top = 10) {
+# One-call viewer (now also prints TEST AUC + optional thresholded metrics)
+view_results <- function(run = c("original","fishlevel"),
+                         open_roc = TRUE, n_top = 10,
+                         positive = "SMB", thr = NULL) {
   run <- match.arg(run)
   lb <- load_leaderboard(run)
   preds <- load_preds(run)
@@ -76,21 +102,48 @@ view_results <- function(run = c("original","fishlevel"), open_roc = TRUE, n_top
   print(dplyr::slice_head(lb, n = n_top))
   cat("\nLoaded leaderboard from: ", attr(lb, "path"), "\n", sep = "")
   
+  # Test AUC from saved probabilities
+  pc <- .prob_col(preds, positive)
+  auc_test <- auc_from_probs(preds$species, preds[[pc]], positive)
+  cat(sprintf("\nTest AUC (from saved probabilities): %.3f\n", auc_test))
+  
+  # Argmax summary
   s <- summarize_preds(preds)
   cat("\n==== Predictions summary (argmax label) ====\n")
-  cat("Test Accuracy: ", sprintf("%.3f", s$accuracy), "\n")
+  cat("Test Accuracy (argmax): ", sprintf("%.3f", s$accuracy), "\n")
   print(s$confusion)
   print(s$by_class)
+  
+  # Optional: thresholded confusion/accuracy at supplied threshold (e.g., 0.300689)
+  if (!is.null(thr)) {
+    neg <- setdiff(unique(preds$species), positive)[1]
+    pred_lab_thr <- ifelse(preds[[pc]] >= thr, positive, neg)
+    acc_thr <- mean(pred_lab_thr == preds$species)
+    cm_thr <- table(
+      actual = factor(preds$species, levels = c(neg, positive)),
+      pred   = factor(pred_lab_thr,     levels = c(neg, positive))
+    )
+    cat(sprintf("\n==== Thresholded summary (thr = %.6f, positive = %s) ====\n", thr, positive))
+    cat("Test Accuracy @ thr: ", sprintf("%.3f", acc_thr), "\n")
+    print(cm_thr)
+  }
   
   roc_path <- try(show_roc(run, open = open_roc), silent = TRUE)
   if (inherits(roc_path, "try-error")) message("ROC image not found; skipped.")
   
-  invisible(list(leaderboard = lb, preds = preds, summary = s,
-                 roc = if (!inherits(roc_path, "try-error")) roc_path else NULL))
+  invisible(list(
+    leaderboard = lb,
+    preds = preds,
+    auc_test = auc_test,
+    argmax_summary = s,
+    thresholded = if (!is.null(thr)) list(thr = thr, acc = acc_thr, cm = cm_thr) else NULL,
+    roc = if (!inherits(roc_path, "try-error")) roc_path else NULL
+  ))
 }
 
-
-# ---- QUINTILES (03_classification.R) ----------------------------------------
+# ------------------------------------------------------------------------------
+# QUINTILES viewer (from 03_classification.R artifacts)
+# ------------------------------------------------------------------------------
 
 load_leaderboard_quintiles <- function() {
   path <- .latest("outputs/tables", "^automl_leaderboard_\\d{8}_\\d{6}\\.rds$")
@@ -103,18 +156,7 @@ load_preds_quintiles <- function(split = c("valid","test")) {
   pr <- readr::read_rds(path); attr(pr, "path") <- path; pr
 }
 
-# pick the probability column for the positive class (default = 'SMB')
-.prob_col <- function(preds, positive = "SMB") {
-  # typical H2O binomial preds have probs named by class labels
-  nms <- names(preds)
-  if (positive %in% nms) return(positive)
-  # fallback: common names 'p1' or 'TRUE'
-  if ("p1" %in% nms) return("p1")
-  if ("TRUE" %in% nms) return("TRUE")
-  stop("Could not find a probability column for class '", positive, "'.")
-}
-
-# compute F1-optimal threshold on VALID preds
+# Compute F1-optimal threshold on VALID preds
 f1_threshold <- function(truth, prob, positive = "SMB") {
   stopifnot(length(truth) == length(prob))
   truth_bin <- as.integer(truth == positive)
@@ -133,18 +175,6 @@ f1_threshold <- function(truth, prob, positive = "SMB") {
   best_t
 }
 
-# AUC from probs (no extra packages)
-auc_from_probs <- function(truth, prob, positive = "SMB") {
-  truth_bin <- as.integer(truth == positive)
-  ord <- order(prob, decreasing = TRUE)
-  tp <- cumsum(truth_bin[ord])
-  fp <- cumsum(1 - truth_bin[ord])
-  TPR <- tp / sum(truth_bin)
-  FPR <- fp / sum(1 - truth_bin)
-  # trapezoid rule on ROC curve
-  sum(diff(c(0, FPR)) * (head(c(0, TPR), -1) + tail(c(0, TPR), -1)) / 2)
-}
-
 view_results_quintiles <- function(positive = "SMB", open_roc = FALSE) {
   lb <- load_leaderboard_quintiles()
   pv <- load_preds_quintiles("valid")
@@ -157,15 +187,13 @@ view_results_quintiles <- function(positive = "SMB", open_roc = FALSE) {
   prob_col <- .prob_col(pt, positive)
   thr <- f1_threshold(truth = pv$species, prob = pv[[prob_col]], positive = positive)
   
-  # confusion at F1-opt threshold (test) — use real class labels
-  neg <- setdiff(unique(pt$species), positive)[1]         # e.g. "LT" when positive = "SMB"
+  # Confusion at F1-opt threshold (TEST) — use real class labels
+  neg <- setdiff(unique(pt$species), positive)[1]
   pred_lab <- ifelse(pt[[prob_col]] >= thr, positive, neg)
-  
   cm <- table(
     actual = factor(pt$species, levels = c(neg, positive)),
     pred   = factor(pred_lab,     levels = c(neg, positive))
   )
-  
   acc <- mean(pred_lab == pt$species)
   
   auc <- auc_from_probs(pt$species, pt[[prob_col]], positive)
@@ -175,9 +203,10 @@ view_results_quintiles <- function(positive = "SMB", open_roc = FALSE) {
            "Accuracy at threshold: {round(acc,3)}\n"))
   print(cm)
   
-  # quick argmax summary too (matches H2O predict label)
+  # Argmax accuracy (matches H2O predict label)
   acc_argmax <- mean(pt$species == pt$predict)
   cat(glue("\nArgmax accuracy (predict column): {round(acc_argmax,3)}\n"))
+  
   invisible(list(leaderboard = lb, preds_valid = pv, preds_test = pt,
                  threshold = thr, auc = auc, cm = cm, acc = acc))
 }
