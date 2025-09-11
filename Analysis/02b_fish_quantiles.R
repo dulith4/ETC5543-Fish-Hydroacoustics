@@ -62,3 +62,4 @@ fish_freq_quintiles <- fish_raw |>
 dir.create("outputs/tables", recursive = TRUE, showWarnings = FALSE)
 saveRDS(fish_freq_quintiles, "outputs/tables/fish_freq_quintiles_long.rds", compress = "xz")
 
+
