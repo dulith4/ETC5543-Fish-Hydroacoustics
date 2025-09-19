@@ -35,7 +35,14 @@ fish_raw <- load_fish_transformed(
   cache_path = "outputs/cache/TS_clean_transformed.rds"
 )
 
-# Transformed quintile table (fish-level × 5 quintiles × F45–F170)
+# Ensure required quintile file exists (build if missing)
+if (!file.exists("outputs/tables/fish_freq_quintiles_long.rds")) {
+  message("Quintile file not found — running feature engineering script...")
+  source("Analysis/02_feature_engineering.R")
+}
+
+
+# Transformed quintile table (fish-level × 5 quintiles × F45–F170) 
 fish_quint <- read_rds("outputs/tables/fish_freq_quintiles_long.rds")
 
 # ---- 2) Quick sanity checks -------------------------------------------------
