@@ -15,6 +15,24 @@ suppressPackageStartupMessages({
   library(lubridate)
 })
 
+# Ensure required quintile file exists (build if missing)
+if (!file.exists("outputs/tables/fish_freq_quintiles_long.rds")) {
+  message("Quintile file not found — running feature engineering script...")
+  source("Analysis/02b_fish_level_quintiles.R")
+}
+
+# ---- Preflight: ensure required quintile file exists (build if missing) ----
+quintile_rds <- here("outputs", "tables", "fish_freq_quintiles_long.rds")
+builder_r    <- here("Analysis", "02b_fish_level_quintiles.R")  # generates the RDS
+
+if (!file.exists(quintile_rds)) {
+  message("Quintile file not found — running: ", builder_r)
+  source(builder_r, local = TRUE)
+  if (!file.exists(quintile_rds)) {
+    stop("Expected file not created: ", quintile_rds)
+  }
+}
+
 # ------------------------------- Paths ----------------------------------------
 in_path    <- here("outputs", "tables", "fish_freq_quintiles_long.rds")
 tables_dir <- here("outputs", "tables")
@@ -121,3 +139,4 @@ saveRDS(diag,         out_diag)
 
 cat("Saved features:   ", out_features, "\n", sep = "")
 cat("Saved diagnostics:", out_diag,     "\n", sep = "")
+
