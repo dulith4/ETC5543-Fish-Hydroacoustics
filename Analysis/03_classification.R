@@ -18,6 +18,7 @@ suppressPackageStartupMessages({
   library(glue)
   library(readr)
   library(forcats)
+  library(here)
 })
 
 dir.create("outputs", showWarnings = FALSE)
@@ -28,13 +29,17 @@ utils_path <- "Analysis/utils_data.R"
 if (file.exists(utils_path)) source(utils_path)
 
 # Ensure required quintile file exists (build if missing)
-if (!file.exists("outputs/tables/fish_freq_quintiles_long.rds")) {
-  message("Quintile file not found — running feature engineering script...")
-  source("Analysis/02b_fish_quantiles.R")
+quintile_rds <- here("outputs", "tables", "fish_freq_quintiles_long.rds")
+builder_r    <- here("Analysis", "02b_fish_quintiles.R")
+
+if (!file.exists(quintile_rds)) {
+  message("Quintile file not found — running: ", builder_r)
+  source(builder_r, local = TRUE)
+  if (!file.exists(quintile_rds)) stop("Expected file not created: ", quintile_rds)
 }
 
 # ---- 1. Load transformed features ----
-path_features <- "outputs/tables/fish_freq_quintiles_long.rds"
+path_features <- quintile_rds  # outputs/tables/fish_freq_quintiles_long.rds
 dat <- readRDS(path_features) %>%
   mutate(
     species  = fct_drop(as.factor(species)),
@@ -171,3 +176,4 @@ saved_path <- h2o.saveModel(leader, path = "outputs/models", force = TRUE)
 invisible(h2o.download_mojo(leader, path = "outputs/models", get_genmodel_jar = TRUE))
 
 cat(glue("\nSaved model: {saved_path}\n"))
+

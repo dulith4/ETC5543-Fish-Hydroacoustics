@@ -13,6 +13,7 @@ suppressPackageStartupMessages({
   library(patchwork)   
   library(scales)      
   library(stringr)
+  library(here)
 })
 
 # Ensure output folders exist
@@ -35,16 +36,21 @@ fish_raw <- load_fish_transformed(
   cache_path = "outputs/cache/TS_clean_transformed.rds"
 )
 
+
 # Ensure required quintile file exists (build if missing)
-if (!file.exists("outputs/tables/fish_freq_quintiles_long.rds")) {
-  message("Quintile file not found — running feature engineering script...")
-  source("Analysis/02b_fish_quantiles.R")
+quintile_rds <- here("outputs", "tables", "fish_freq_quintiles_long.rds")
+builder_r    <- here("Analysis", "02b_fish_quintiles.R")
+
+if (!file.exists(quintile_rds)) {
+  message("Quintile file not found — running: ", builder_r)
+  source(builder_r, local = TRUE)
+  if (!file.exists(quintile_rds)) {
+    stop("Expected file not created: ", quintile_rds)
+  }
 }
 
-
 # Transformed quintile table (fish-level × 5 quintiles × F45–F170) 
-fish_quint <- read_rds("outputs/tables/fish_freq_quintiles_long.rds")
-
+fish_quint <- readr::read_rds(quintile_rds)
 # ---- 2) Quick sanity checks -------------------------------------------------
 message("Rows/cols (raw):    ", nrow(fish_raw),  " / ", ncol(fish_raw))
 message("Rows/cols (quints): ", nrow(fish_quint), " / ", ncol(fish_quint))
