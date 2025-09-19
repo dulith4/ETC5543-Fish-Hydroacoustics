@@ -27,6 +27,12 @@ dir.create("outputs/models", showWarnings = FALSE, recursive = TRUE)
 utils_path <- "Analysis/utils_data.R"
 if (file.exists(utils_path)) source(utils_path)
 
+# Ensure required quintile file exists (build if missing)
+if (!file.exists("outputs/tables/fish_freq_quintiles_long.rds")) {
+  message("Quintile file not found — running feature engineering script...")
+  source("Analysis/02b_fish_quantiles.R")
+}
+
 # ---- 1. Load transformed features ----
 path_features <- "outputs/tables/fish_freq_quintiles_long.rds"
 dat <- readRDS(path_features) %>%

@@ -38,7 +38,7 @@ fish_raw <- load_fish_transformed(
 # Ensure required quintile file exists (build if missing)
 if (!file.exists("outputs/tables/fish_freq_quintiles_long.rds")) {
   message("Quintile file not found — running feature engineering script...")
-  source("Analysis/02_feature_engineering.R")
+  source("Analysis/02b_fish_quantiles.R")
 }
 
 
