@@ -117,3 +117,36 @@ R -e "install.packages('renv'); renv::restore()"
 
 Rscript Analysis/03_classification_original.R
 
+
+## Python (Keras/TensorFlow) Setup
+
+Some scripts (e.g. Analysis/03_rnn_classification.R) use Keras/TensorFlow via reticulate.
+You need a local Python virtual environment (not tracked in Git).
+
+**1. In R, create the environment and install Keras/TensorFlow:**
+
+```{r}
+library(reticulate)
+virtualenv_create(".venv")   # creates a project-local Python env (ignored by Git)
+keras::install_keras(envname = ".venv", version = "2.15.0", tensorflow = "2.15.0")
+```
+
+
+**2.Tell reticulate to always use it:**
+
+```{r}
+reticulate::use_virtualenv(".venv", required = TRUE)
+```
+
+
+**3. Check installation:**
+
+```{r}
+keras::is_keras_available()
+tensorflow::tf_config()
+```
+
+
+If `is_keras_available()` returns `TRUE`, you’re ready.
+
+⚠️ Note: The `.venv/` folder is ignored by Git (`.gitignore`). Each collaborator must create it locally.

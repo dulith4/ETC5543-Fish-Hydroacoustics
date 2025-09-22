@@ -210,3 +210,4 @@ view_results_quintiles <- function(positive = "SMB", open_roc = FALSE) {
   invisible(list(leaderboard = lb, preds_valid = pv, preds_test = pt,
                  threshold = thr, auc = auc, cm = cm, acc = acc))
 }
+
