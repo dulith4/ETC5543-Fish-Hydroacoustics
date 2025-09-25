@@ -30,7 +30,7 @@ if (file.exists(utils_path)) source(utils_path)
 
 # Ensure required quintile file exists (build if missing)
 quintile_rds <- here("outputs", "tables", "fish_freq_quintiles_long.rds")
-builder_r    <- here("Analysis", "02b_fish_quintiles.R")
+builder_r    <- here("Analysis", "02b_fish_quantiles.R")
 
 if (!file.exists(quintile_rds)) {
   message("Quintile file not found — running: ", builder_r)
@@ -39,7 +39,7 @@ if (!file.exists(quintile_rds)) {
 }
 
 # ---- 1. Load transformed features ----
-path_features <- quintile_rds  # outputs/tables/fish_freq_quintiles_long.rds
+path_features <- quintile_rds  # outputs/tables/fish_freq_quantiles_long.rds
 dat <- readRDS(path_features) %>%
   mutate(
     species  = fct_drop(as.factor(species)),
