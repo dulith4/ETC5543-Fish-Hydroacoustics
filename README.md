@@ -189,5 +189,5 @@ keras::is_keras_available()   # should return TRUE
   ```bash
   pip install --upgrade --force-reinstall "tensorflow==2.15.0" "keras==2.15.0" "tf-keras==2.15.1"
 ```
-Error: `keras::is_keras_available()` returns `FALSE`
+- Error: `keras::is_keras_available()` returns `FALSE`
 → Make sure you called `reticulate::use_virtualenv(".../r-keras", required = TRUE)` before loading keras in R.
