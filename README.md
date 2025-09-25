@@ -120,33 +120,74 @@ Rscript Analysis/03_classification_original.R
 
 ## Python (Keras/TensorFlow) Setup
 
-Some scripts (e.g. Analysis/03_rnn_classification.R) use Keras/TensorFlow via reticulate.
-You need a local Python virtual environment (not tracked in Git).
+Some scripts (e.g. `Analysis/03_rnn_classification.R`) use Keras/TensorFlow via **reticulate**.  
+You need a dedicated Python virtual environment (not tracked in Git).  
+We pin TensorFlow/Keras to **v2.15** for compatibility with the R `keras` interface.
 
-**1. In R, create the environment and install Keras/TensorFlow:**
+---
 
-```{r}
-library(reticulate)
-virtualenv_create(".venv")   # creates a project-local Python env (ignored by Git)
-keras::install_keras(envname = ".venv", version = "2.15.0", tensorflow = "2.15.0")
+### 1. Create a Python virtual environment
+
+```bash
+# Windows (PowerShell):
+python -m venv "%USERPROFILE%\.virtualenvs\r-keras"
+
+# Mac/Linux:
+python3 -m venv ~/.virtualenvs/r-keras
+
+```
+### 2. Activate the virtual environment
+
+```bash
+# Windows:
+%USERPROFILE%\.virtualenvs\r-keras\Scripts\activate
+
+# Mac/Linux:
+source ~/.virtualenvs/r-keras/bin/activate
 ```
 
+### 3. Install the required Python packages
 
-**2.Tell reticulate to always use it:**
+```bash
 
-```{r}
-reticulate::use_virtualenv(".venv", required = TRUE)
+pip install "numpy<2" tensorflow==2.15 keras==2.15 tf-keras==2.15.1
+
 ```
 
+### 4. Tell R to use this environment
 
-**3. Check installation:**
+At the start of your R session (or in `.Rprofile`):
 
-```{r}
-keras::is_keras_available()
-tensorflow::tf_config()
+```r
+reticulate::use_virtualenv("C:/Users/<your-username>/Documents/.virtualenvs/r-keras", required = TRUE)
+```
+(Adjust the path for Mac/Linux: ~/.virtualenvs/r-keras)
+
+### 5. Sanity check
+
+```r
+library(tensorflow)
+tensorflow::tf_config()   # should show TensorFlow v2.15.0
+
+library(keras)
+keras::is_keras_available()   # should return TRUE
 ```
 
+### Notes
 
-If `is_keras_available()` returns `TRUE`, you’re ready.
+- The R keras package is deprecated; we use it intentionally with TensorFlow 2.15 for compatibility.
 
-⚠️ Note: The `.venv/` folder is ignored by Git (`.gitignore`). Each collaborator must create it locally.
+- Do not upgrade to TensorFlow 2.16+ or Keras 3+, as the R interface is not yet stable with those versions.
+
+- Each collaborator must create this virtual environment locally. The .virtualenvs/ folder is ignored by Git.
+
+### Troubleshooting
+
+- **Error:** `AttributeError: module 'tensorflow' has no attribute 'VERSION'`  
+  → Cause: wrong TF/Keras version.  
+  → Fix: Reinstall pinned versions inside the virtualenv:  
+  ```bash
+  pip install --upgrade --force-reinstall "tensorflow==2.15.0" "keras==2.15.0" "tf-keras==2.15.1"
+```
+Error: `keras::is_keras_available()` returns `FALSE`
+→ Make sure you called `reticulate::use_virtualenv(".../r-keras", required = TRUE)` before loading keras in R.
