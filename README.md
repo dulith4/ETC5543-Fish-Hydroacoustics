@@ -191,3 +191,33 @@ keras::is_keras_available()   # should return TRUE
 ```
 - Error: `keras::is_keras_available()` returns `FALSE`
 → Make sure you called `reticulate::use_virtualenv(".../r-keras", required = TRUE)` before loading keras in R.
+
+## Quick Health Check
+
+**Run this check once after cloning the repo or updating dependencies to confirm everything works.**
+
+After installing R and Python dependencies, run the smoke test:
+
+```bash
+Rscript 00_smoke_test.R
+```
+### Expected output:
+
+- R version is printed
+
+- ggplot2 OK
+
+- reticulate OK
+
+- TensorFlow version 2.15.0
+
+- Keras available: TRUE
+
+- **All checks passed ✅**
+
+#### Notes for OneDrive users
+
+If your `.virtualenvs/r-keras` is inside **OneDrive**, paths may vary (e.g., `C:/Users/<name>/OneDrive/Documents/.virtualenvs/r-keras`).  
+The provided `00_smoke_test.R` script automatically checks both standard `Documents/` and `OneDrive/Documents/` locations and uses whichever exists.
+
+If this script runs without errors, your environment is correctly set up.
