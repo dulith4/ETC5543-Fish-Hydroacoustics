@@ -11,6 +11,9 @@ candidates <- unique(na.omit(c(
   normalizePath("~/Documents/.virtualenvs/r-keras", mustWork = FALSE)
 )))
 
+# show the candidate paths being checked
+cat("Searching for r-keras virtualenv in:\n", paste(" -", candidates, collapse = "\n"), "\n")
+
 existing <- Filter(dir.exists, candidates)
 
 if (length(existing)) {
