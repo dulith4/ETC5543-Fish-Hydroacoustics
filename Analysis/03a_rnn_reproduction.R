@@ -9,6 +9,20 @@
 rm(list = ls())
 invisible(gc())
 
+suppressPackageStartupMessages({
+  library(tidyverse)
+  library(here)
+  library(tidymodels)  
+  library(purrr)
+  library(ROCR)        
+  library(jsonlite)
+  library(lubridate)
+  library(yardstick)   
+  library(keras)
+})
+
+
+
 # ---- 0. Folders ---------------------------------------------------------------
 dir.create("outputs", showWarnings = FALSE)
 dir.create("outputs/tables", showWarnings = FALSE, recursive = TRUE)
