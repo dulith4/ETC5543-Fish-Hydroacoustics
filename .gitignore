@@ -72,6 +72,11 @@ outputs/tables/*_[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]_*.rds
 outputs/tables/*backscatter_450*.rds
 outputs/tables/*backscatter_450*.csv
 
+# RNN artifacts (confusion matrix, history, metrics, etc.)
+outputs/tables/rnn_confusion_*.csv
+outputs/tables/rnn_history_*.rds
+outputs/tables/rnn_metrics_*.json
+
 
 # generated ROC images (not tracked)
 figures/roc_*.png
