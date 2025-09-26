@@ -238,7 +238,7 @@ metrics_list <- list(
   saved_as    = saved_as
 )
 jsonlite::write_json(metrics_list, metrics_path, pretty = TRUE, auto_unbox = TRUE)
-cm_df <- cm$table %>% as.matrix() %>% as.data.frame()
+cm_df <- cm$table |> as.matrix() |> as.data.frame()
 cm_df <- tibble::rownames_to_column(cm_df, var = "truth")
 names(cm_df)[-1] <- paste0("pred_", levels(true_fac))
 readr::write_csv(cm_df, cm_path)
