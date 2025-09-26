@@ -68,6 +68,11 @@ outputs/models/**
 outputs/tables/*_[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]_*.csv
 outputs/tables/*_[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]_*.rds
 
+# Backscatter-transformed splits (rebuild via Analysis/02a_check_transformations.R)
+outputs/tables/*backscatter_450*.rds
+outputs/tables/*backscatter_450*.csv
+
+
 # generated ROC images (not tracked)
 figures/roc_*.png
 
