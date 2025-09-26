@@ -221,3 +221,39 @@ If your `.virtualenvs/r-keras` is inside **OneDrive**, paths may vary (e.g., `C:
 The provided `00_smoke_test.R` script automatically checks both standard `Documents/` and `OneDrive/Documents/` locations and uses whichever exists.
 
 If this script runs without errors, your environment is correctly set up.
+
+## Run Everything (with environment checks)
+
+```bash
+Rscript run_all.R
+```
+
+What it does (briefly):
+
+  - Verifies core R deps (`ggplot2`, `reticulate`, `renv`)
+
+  - Finds and activates the r-keras Python virtualenv automatically
+
+  - Prints TensorFlow/Keras versions and keras::is_keras_available()
+
+  - Optionally restores R packages from renv.lock if out of sync
+
+  - Executes the main analysis scripts (you can edit the list inside run_all.R)
+
+⚠️ Some scripts (e.g., deep-learning / RNN) may take a long time to run.
+Start with Analysis/03_classification_original.R if you want a quicker pass.
+
+Where to create the `r-keras` virtualenv
+
+Create it in one of these common locations so the scripts can auto-detect it:
+
+  - **Windows (local Documents):**
+  C:/Users/<username>/Documents/.virtualenvs/r-keras
+
+  - **Windows (OneDrive Documents):**
+  C:/Users/<username>/OneDrive/Documents/.virtualenvs/r-keras
+
+  - **macOS/Linux:**
+  ~/Documents/.virtualenvs/r-keras or ~/.virtualenvs/r-keras
+
+(If you place it elsewhere, edit `run_all.R` or set it in `.Rprofile` via `reticulate::use_virtualenv()`.)
