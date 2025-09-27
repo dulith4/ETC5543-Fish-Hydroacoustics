@@ -68,14 +68,35 @@ run_script <- function(path) {
   message("<<< Done: ", path, " [", round(difftime(Sys.time(), t0, units = "mins"), 2), " min]")
 }
 
-# Example pipeline — adjust to your files:
+# Example pipeline — adjust to your files: (un)comment as needed. and if you only running one script,
+#remove the comma after the last entry.
 scripts <- c(
-  # "Analysis/01_data_prep.R",
-  # "Analysis/02_feature_engineering.R",
-  "Analysis/03_classification_original.R"
-  # "Analysis/03_rnn_classification.R"  # (long-running; uses Keras/TF)
+  # "00_dependencies.R",  # (optional; only if you want to re-snapshot packages)
+  # "00_smoke_test.R",  # (optional; quick environment check)
+  # "Analysis/data_exploration.R", # (optional; EDA)
+  # "Analysis/utils_data.R", # (utility functions; load & lightly transform data)
+  # "Analysis/utils_results.R", # (utility functions; to evaluate models results)
+  # "Analysis/view_results_original.R", # (view original data model results)
+  # "Analysis/view_results_quintiles.R", # (view quintile-transformed data model results)
+  # "Analysis/01_data_exploration.R", # (Sanity checks of raw data vs quintile-transformed frequency table)
+  # "Analysis/01_data_transformation.R",  # (optional; data cleaning)
+  # "Analysis/02_feature_engineering.R", # (optional; feature extraction)
+  # "Analysis/02a_check_transformations.R",  # size-standardisation + backscatter
+  # "Analysis/02b_fish_quantiles.R", # fish frequency quantiles
+  # "Analysis/03_classification_original.R", # (long-running; original dataset)
+  # "Analysis/03_classification.R", # (long-running; balanced dataset)
+  # "Analysis/03a_rnn_reproduction.R", # (long-running; uses Keras/TF)
+  # "Analysis/03b_features_fish_level.R", # (long-running; fish-level features)
 )
 
 invisible(lapply(scripts, run_script))
 
 cat("\nAll selected scripts finished. ✅\n")
+
+
+
+# === Reminder for adding new scripts ===
+# 1. Save the new script.
+# 2. Add the path inside the 'scripts <- c(...)' vector above.
+# 3. Keep the order logical (data prep -> feature eng -> modelling).
+# 4. To skip a script without deleting it, just comment it out with #.

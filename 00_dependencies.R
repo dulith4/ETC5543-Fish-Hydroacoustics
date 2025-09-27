@@ -35,6 +35,7 @@ library(forecast)
 # Deep learning
 library(keras)
 library(tensorflow)
+library(h2o)
 
 # Utilities
 library(here)
