@@ -211,3 +211,122 @@ view_results_quintiles <- function(positive = "SMB", open_roc = FALSE) {
                  threshold = thr, auc = auc, cm = cm, acc = acc))
 }
 
+
+# ------------------------------------------------------------------------------
+# RNN viewer helpers
+# ------------------------------------------------------------------------------
+
+# Load latest metrics JSON
+load_rnn_metrics <- function() {
+  path <- .latest("outputs/tables", "^rnn_metrics_(\\d{6}|\\d{8})_\\d{6}\\.json$")
+  m <- jsonlite::fromJSON(path)
+  attr(m, "path") <- path
+  m
+}
+
+# Load latest confusion CSV
+load_rnn_confusion <- function() {
+  path <- .latest("outputs/tables", "^rnn_confusion_(\\d{6}|\\d{8})_\\d{6}\\.csv$")
+  cm <- readr::read_csv(path, show_col_types = FALSE)
+  attr(cm, "path") <- path
+  cm
+}
+
+# Load latest predictions (if they were saved)
+load_rnn_preds <- function(optional = TRUE) {
+  path_rds <- try(.latest("outputs/tables", "^rnn_preds_(\\d{6}|\\d{8})_\\d{6}\\.rds$"), silent = TRUE)
+  path_csv <- try(.latest("outputs/tables", "^rnn_preds_(\\d{6}|\\d{8})_\\d{6}\\.csv$"), silent = TRUE)
+  if (!inherits(path_rds, "try-error") && file.exists(path_rds)) {
+    pr <- readr::read_rds(path_rds); attr(pr, "path") <- path_rds; return(pr)
+  }
+  if (!inherits(path_csv, "try-error") && file.exists(path_csv)) {
+    pr <- readr::read_csv(path_csv, show_col_types = FALSE); attr(pr, "path") <- path_csv; return(pr)
+  }
+  if (optional) return(NULL)
+  stop("No RNN predictions found. Re-run 03a_rnn_reproduction.R with preds saving enabled.")
+}
+
+# Summarize predictions
+summarize_rnn_preds <- function(preds) {
+  stopifnot(all(c("species","pred_label") %in% names(preds)))
+  tab <- table(actual = preds$species, pred = preds$pred_label)
+  acc <- sum(diag(tab)) / sum(tab)
+  classes <- union(rownames(tab), colnames(tab))
+  byc <- purrr::map_dfr(classes, function(cl) {
+    tp <- sum(preds$species == cl & preds$pred_label == cl)
+    fp <- sum(preds$species != cl & preds$pred_label == cl)
+    fn <- sum(preds$species == cl & preds$pred_label != cl)
+    tibble(class = cl,
+           precision = ifelse(tp + fp > 0, tp/(tp+fp), NA_real_),
+           recall    = ifelse(tp + fn > 0, tp/(tp+fn), NA_real_),
+           support   = sum(preds$species == cl))
+  })
+  list(accuracy = acc, confusion = tab, by_class = byc)
+}
+
+# Open latest ROC PNG
+show_roc_rnn <- function(open = TRUE) {
+  path <- .latest(c("figures","outputs/figures"), "^roc_rnn_(\\d{6}|\\d{8})_\\d{6}\\.png$")
+  message("ROC image: ", normalizePath(path))
+  if (open && .Platform$OS.type == "windows") shell.exec(normalizePath(path))
+  invisible(path)
+}
+
+# One-call viewer
+view_results_rnn <- function(open_roc = TRUE, positive = "SMB", thr = NULL) {
+  m  <- load_rnn_metrics()
+  cm <- try(load_rnn_confusion(), silent = TRUE)
+  pr <- load_rnn_preds(optional = TRUE)
+  
+  cat("\n==== RNN — Metrics ====\n")
+  cat("Test accuracy:", sprintf("%.3f", m$test_accuracy), "\n")
+  cat("Test loss    :", sprintf("%.4f", m$test_loss), "\n")
+  cat("n seq (train/val/test):", m$n_train_seq, m$n_valid_seq, m$n_test_seq, "\n")
+  if (!is.null(m$roc_png)) cat("ROC image (saved path):", m$roc_png, "\n")
+  cat("Loaded metrics from: ", attr(m, "path"), "\n", sep = "")
+  
+  if (!inherits(cm, "try-error")) {
+    cat("\n==== Confusion matrix (latest CSV) ====\n")
+    print(cm)
+    cat("Loaded confusion from: ", attr(cm, "path"), "\n", sep = "")
+  } else {
+    message("No confusion CSV found (skipping).")
+  }
+  
+  if (!is.null(pr)) {
+    cat("\n==== Predictions summary (argmax) ====\n")
+    s <- summarize_rnn_preds(pr)
+    cat("Accuracy (argmax): ", sprintf("%.3f", s$accuracy), "\n")
+    print(s$confusion); print(s$by_class)
+    cat("Loaded predictions from: ", attr(pr, "path"), "\n", sep = "")
+    
+    # AUC from probabilities if available
+    if ("prob_SMB" %in% names(pr)) {
+      auc <- auc_from_probs(pr$species, pr$prob_SMB, positive = positive)
+      cat(sprintf("\nTest AUC (from probs, positive=%s): %.3f\n", positive, auc))
+      
+      # Thresholded summary
+      if (!is.null(thr)) {
+        neg <- setdiff(unique(pr$species), positive)[1]
+        pred_thr <- ifelse(pr$prob_SMB >= thr, positive, neg)
+        acc_thr  <- mean(pred_thr == pr$species)
+        cm_thr <- table(
+          actual = factor(pr$species, levels = c(neg, positive)),
+          pred   = factor(pred_thr,     levels = c(neg, positive))
+        )
+        cat(sprintf("\n==== Thresholded summary (thr = %.6f) ====\n", thr))
+        cat("Accuracy @ thr:", sprintf("%.3f", acc_thr), "\n")
+        print(cm_thr)
+      }
+    }
+  } else {
+    message("No predictions saved for RNN; AUC/threshold summaries skipped.")
+  }
+  
+  # Show ROC image
+  roc_path <- try(show_roc_rnn(open = open_roc), silent = TRUE)
+  if (inherits(roc_path, "try-error")) message("ROC image not found; skipped.")
+  
+  invisible(list(metrics = m, cm = if (!inherits(cm,"try-error")) cm else NULL,
+                 preds = pr, roc = if (!inherits(roc_path,"try-error")) roc_path else NULL))
+}
