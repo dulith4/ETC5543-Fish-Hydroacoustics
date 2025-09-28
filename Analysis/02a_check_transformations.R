@@ -38,12 +38,12 @@ test     <- testing(split2)
 # ------------------ Keep needed cols, then standardise to 450 mm --------------
 prep_standardise <- function(df, target_len = 450) {
   stopifnot(all(c("Region", "species", "totalLength") %in% names(df)))
-  df2 <- df %>%
+  df2 <- df |>
     select(all_of(freq_cols), Region, species, totalLength)
   
   # Row-wise offset in dB to scale each fish to 450 mm
   # offset_dB = 10 * log10(450 / totalLength)
-  df2 <- df2 %>%
+  df2 <- df2 |>
     mutate(.offset_dB = 10 * log10(target_len / totalLength)) %>%
     mutate(across(all_of(freq_cols), ~ exp((.x + .offset_dB) / 10))) %>%
     # We are now in linear "acoustic backscatter" units
@@ -86,7 +86,7 @@ saveRDS(test_bs,     file = file.path(out_dir, "test_backscatter_450.rds"))
 
 # Small footprints for inspection
 vroom::vroom_write(
-  train_bs %>% select(all_of(freq_cols), species) %>% slice(1:100),
+  train_bs |> select(all_of(freq_cols), species) |> slice(1:100),
   file.path(out_dir, "train_backscatter_450_head.csv"),
   delim = ","
 )

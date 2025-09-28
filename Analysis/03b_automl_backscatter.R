@@ -1,0 +1,172 @@
+# ==============================================================================
+# 03b_automl_backscatter.R
+# H2O AutoML on size-standardised backscatter:
+#   A) Per-ping table
+#   B) 5-ping block mean (to match RNN unit of analysis)
+# Saves: leaderboards, VALID/TEST predictions, ROC PNGs, metrics JSON
+# ==============================================================================
+
+rm(list = ls())
+invisible(gc())
+
+suppressPackageStartupMessages({
+  library(tidyverse)
+  library(here)
+  library(lubridate)
+  library(glue)
+  library(ggplot2)
+})
+
+# -------- folders --------------------------------------------------------------
+dir.create("outputs", showWarnings = FALSE)
+dir.create("outputs/tables", showWarnings = FALSE, recursive = TRUE)
+dir.create("figures", showWarnings = FALSE, recursive = TRUE)
+
+ts_tag <- format(with_tz(Sys.time(), "Australia/Melbourne"), "%Y%m%d_%H%M%S")
+
+# -------- ensure transformed inputs exist -------------------------------------
+builder <- here("Analysis","02a_check_transformations.R")
+paths <- list(
+  train    = here("outputs","tables","train_backscatter_450.rds"),
+  validate = here("outputs","tables","validate_backscatter_450.rds"),
+  test     = here("outputs","tables","test_backscatter_450.rds")
+)
+if (!all(file.exists(unlist(paths)))) {
+  message("Backscatter files missing — running: ", builder)
+  source(builder, local = TRUE)
+  stopifnot(all(file.exists(unlist(paths))))
+}
+
+train_bs    <- readRDS(paths$train)
+validate_bs <- readRDS(paths$validate)
+test_bs     <- readRDS(paths$test)
+
+freq_cols <- names(train_bs)[str_detect(names(train_bs), "^F\\d+(?:\\.\\d+)?$")]
+stopifnot(length(freq_cols) > 0, all(c("Region","species") %in% names(train_bs)))
+
+# -------- helper: 5-ping blocks + mean across time ----------------------------
+mk_blocks5 <- function(df) {
+  df |>
+    group_by(Region) |>
+    mutate(.grp = rep(seq_len(ceiling(n()/5)), each = 5, length.out = n())) |>
+    ungroup() |>
+    group_by(Region, .grp, species) |>
+    filter(n() == 5) |>
+    summarise(across(all_of(freq_cols), mean), .groups = "drop")
+}
+
+train_blk <- mk_blocks5(train_bs)
+valid_blk <- mk_blocks5(validate_bs)
+test_blk  <- mk_blocks5(test_bs)
+
+# -------- Variant A: PER-PING -------------------------------------------------
+variant_perping <- list(
+  name     = "original",   # keeps compatibility with your viewers
+  train    = train_bs |> select(all_of(freq_cols), species),
+  valid    = validate_bs |> select(all_of(freq_cols), species),
+  test     = test_bs |> select(all_of(freq_cols), species)
+)
+
+# -------- Variant B: 5-PING BLOCK MEAN ---------------------------------------
+variant_blockmean <- list(
+  name     = "original_blocks",
+  train    = train_blk |> select(all_of(freq_cols), species),
+  valid    = valid_blk |> select(all_of(freq_cols), species),
+  test     = test_blk |> select(all_of(freq_cols), species)
+)
+
+variants <- list(variant_perping, variant_blockmean)
+
+# -------- H2O setup -----------------------------------------------------------
+if (!requireNamespace("h2o", quietly = TRUE)) install.packages("h2o")
+library(h2o)
+h2o.init(nthreads = -1)
+on.exit(try(h2o.shutdown(prompt = FALSE), silent = TRUE))
+
+run_automl <- function(v) {
+  message("\n=== AutoML variant: ", v$name, " ===")
+  
+  # to H2O frames
+  hex_train <- as.h2o(v$train)
+  hex_valid <- as.h2o(v$valid)
+  hex_test  <- as.h2o(v$test)
+  
+  y <- "species"
+  x <- setdiff(names(v$train), y)
+  
+  # factors
+  hex_train[[y]] <- as.factor(hex_train[[y]])
+  hex_valid[[y]] <- as.factor(hex_valid[[y]])
+  hex_test[[y]]  <- as.factor(hex_test[[y]])
+  
+  aml <- h2o.automl(
+    x = x, y = y,
+    training_frame = hex_train,
+    validation_frame = hex_valid,
+    leaderboard_frame = hex_test,
+    max_runtime_secs = 600,             
+    nfolds = 0,
+    balance_classes = TRUE,
+    sort_metric = "AUC",
+    seed = 73
+  )
+  
+  lb <- aml@leaderboard
+  best <- aml@leader
+  message("Leader: ", best@algorithm, " | AUC(valid): ", round(h2o.auc(h2o.performance(best, hex_valid)),3))
+  
+  # predictions on VALID & TEST
+  pv <- h2o.predict(best, hex_valid) |> as.data.frame()
+  pt <- h2o.predict(best, hex_test)  |> as.data.frame()
+  
+  # Bind truth for viewers
+  pv <- bind_cols(species = as.character(v$valid$species), pv)
+  pt <- bind_cols(species = as.character(v$test$species),  pt)
+  
+  # pick prob column for SMB if available
+  prob_col <- if ("SMB" %in% names(pt)) "SMB" else if ("p1" %in% names(pt)) "p1" else names(pt)[grepl("^p", names(pt))][1]
+  
+  # simple ROC (TEST) figure
+  roc_df <- {
+    truth <- as.integer(pt$species == "SMB")
+    score <- pt[[prob_col]]
+    o <- order(score, decreasing = TRUE)
+    tp <- cumsum(truth[o]); fp <- cumsum(1 - truth[o])
+    tpr <- tp / sum(truth); fpr <- fp / sum(1 - truth)
+    tibble(fpr = c(0, fpr), tpr = c(0, tpr))
+  }
+  
+  fig_path <- here("figures", glue("roc_{v$name}_{ts_tag}.png"))
+  p <- ggplot(roc_df, aes(fpr, tpr)) +
+    geom_abline(slope = 1, intercept = 0, colour = "grey60") +
+    geom_path() + coord_equal() +
+    labs(title = glue("AutoML ROC ({v$name}) — SMB positive"),
+         x = "False positive rate", y = "True positive rate") +
+    theme_classic()
+  ggsave(fig_path, p, width = 6.5, height = 5, dpi = 160)
+  
+  # save artifacts (tables)
+  lb_path <- here("outputs","tables", glue("leaderboard_{v$name}_{ts_tag}.rds"))
+  pv_path <- here("outputs","tables", glue("preds_{v$name}_valid_{ts_tag}.rds"))
+  pt_path <- here("outputs","tables", glue("preds_{v$name}_test_{ts_tag}.rds"))
+  readr::write_rds(as_tibble(lb), lb_path)
+  readr::write_rds(as_tibble(pv), pv_path)
+  readr::write_rds(as_tibble(pt), pt_path)
+  
+  # small metrics JSON
+  metrics <- list(
+    variant = v$name,
+    n_train = nrow(v$train),
+    n_valid = nrow(v$valid),
+    n_test  = nrow(v$test),
+    roc_png = fig_path
+  )
+  readr::write_file(jsonlite::toJSON(metrics, pretty = TRUE, auto_unbox = TRUE),
+                    here("outputs","tables", glue("automl_metrics_{v$name}_{ts_tag}.json")))
+  
+  invisible(list(leaderboard = lb_path, preds_valid = pv_path, preds_test = pt_path, roc = fig_path))
+}
+
+results <- lapply(variants, run_automl)
+message("\nAutoML runs complete. Artifacts saved in outputs/tables and outputs/figures.\n")
+
