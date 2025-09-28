@@ -82,6 +82,8 @@ outputs/tables/automl_leaderboard_*.rds
 outputs/tables/automl_preds_*.rds
 outputs/tables/automl_metrics_*.json
 
+# TSfeatures artifacts (rebuildable from 04_tsfeatures_build.R)
+outputs/tables/fish_*_tsfeat*.rds
 
 
 # generated ROC images (not tracked)

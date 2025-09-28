@@ -32,6 +32,7 @@ library(feasts)
 library(tsfeatures)
 library(fabletools)
 library(forecast)
+library(stringr) # regrex of frequency columns
 
 # Deep learning
 library(keras)

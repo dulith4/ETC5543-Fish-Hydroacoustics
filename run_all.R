@@ -77,6 +77,7 @@ scripts <- c(
   # Data prep / transforms
   # "Analysis/02a_check_transformations.R",   # size-standardisation + backscatter
   # "Analysis/02b_fish_quantiles.R",          # quintile summary (5 per fish)
+  # "Analysis/04_tsfeatures_build.R",        # build fish-level tsfeatures
   
   # Modelling (original structures)
   # "Analysis/03_classification_original.R",  # AutoML on original per-ping wide table
