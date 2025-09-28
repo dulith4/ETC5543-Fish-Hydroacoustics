@@ -1,18 +1,30 @@
 # ==============================================================================
-# ETC5543 Fish Hydroacoustics — ORIGINAL structure classification (H2O AutoML)
-# ==============================================================================
-# Goal:
-#   - Use F45–F170 only (no morphometrics), grouped 60/20/20 split by fishNum,
-#     stratified by species, with 5-fold CV (folds grouped by fishNum).
-#   - Run H2O AutoML (>=1200s) with include_algos = c("GBM","DRF","GLM","DeepLearning")
-#   - Save leaderboard, predictions, best model, and ROC plot.
-# Outputs (timestamped):
-#   - outputs/tables/leaderboard_original_{ts}.rds
-#   - outputs/tables/preds_original_{ts}.rds
-#   - outputs/figures/roc_original_{ts}.png
-#   - outputs/models/best_original/{ts}/(h2o model files)
-# Notes:
-#   - Minimal console chatter; metrics saved to disk.
+# 03_classification_original.R
+# PURPOSE
+#   Train H2O AutoML on the ORIGINAL (per-ping, wide F45–F170) structure.
+#   - 60/20/20 split by fishNum (grouped), stratified by species
+#   - 5-fold CV (folds grouped by fishNum via fold_column)
+#   - Algorithms: GBM, DRF, GLM, DeepLearning
+#   - Save leaderboard, test predictions, best model, and ROC
+#
+# RUN THIS AT LEAST ONCE
+#   Generates artifacts in outputs/ that the viewer script will read later:
+#     source("Analysis/view_results_automl.R")
+#
+# INPUTS
+#   - data/TSresponse_clean.RDS  (loaded via Analysis/utils_data.R)
+#     Expect columns: species, fishNum, and F45…F170 (incl. decimals like F45.5)
+#
+# OUTPUTS (timestamped)
+#   - outputs/tables/leaderboard_original_YYYYMMDD_HHMMSS.rds
+#   - outputs/tables/preds_original_YYYYMMDD_HHMMSS.rds
+#   - figures/roc_original_YYYYMMDD_HHMMSS.png
+#   - outputs/models/best_original/YYYYMMDD_HHMMSS/  (H2O model files)
+#
+# NOTES
+#   - Target = species (SMB vs LT); predictors = all F45–F170 columns only.
+#   - Leaderboard is sorted by AUC; test AUC + ROC saved.
+#   - Large artifacts are .gitignored; each collaborator should run this locally.
 # ==============================================================================
 
 # ---- 0) Clean & setup ----

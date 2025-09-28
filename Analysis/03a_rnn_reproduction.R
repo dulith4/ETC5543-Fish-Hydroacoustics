@@ -1,10 +1,39 @@
 # ==============================================================================
 # 03a_rnn_reproduction.R
-# Reproduce original RNN on size-standardised (450 mm) backscatter features.
-# - Builds 5-ping sequences by Region from backscatter splits
-# - Fits LSTM -> dense stack (same as workshop code)
-# - Saves model, history, metrics, ROC PNG, confusion matrix
+# PURPOSE
+#   Reproduce the original LSTM/RNN on size-standardised (450 mm) backscatter.
+#   Builds 5-ping blocks by Region, trains the model, evaluates, and saves artifacts.
+#
+# RUN THIS AT LEAST ONCE:
+#   This script must be run once per machine to generate artifacts in outputs/.
+#   After that, results can be viewed instantly with:
+#     source("Analysis/view_results_rnn.R")
+#
+# INPUTS (auto-created if missing)
+#   - outputs/tables/train_backscatter_450.rds
+#   - outputs/tables/validate_backscatter_450.rds
+#   - outputs/tables/test_backscatter_450.rds
+#   If not present, this script will run Analysis/02a_check_transformations.R.
+#
+# OUTPUTS (timestamped)
+#   - figures/roc_rnn_YYYYMMDD_HHMMSS.png
+#   - outputs/tables/rnn_history_YYYYMMDD_HHMMSS.rds
+#   - outputs/tables/rnn_metrics_YYYYMMDD_HHMMSS.json
+#   - outputs/tables/rnn_confusion_YYYYMMDD_HHMMSS.csv
+#   - outputs/models/rnn_YYMMDD_HHMMSS.(SavedModel/.keras/.h5)
+#
+# PREREQUISITES
+#   renv::restore()  (R packages)
+#   TensorFlow/Keras backend installed once in this project:
+#     install.packages(c("keras","tensorflow"))
+#     library(tensorflow); tensorflow::install()
+#
+# NOTES
+#   - Uses SMB as the positive class for ROC.
+#   - On Windows/OneDrive, SavedModel folder can fail; script falls back to .keras/.h5.
+#   - Artifacts are .gitignored; each collaborator should run this once locally.
 # ==============================================================================
+
 
 rm(list = ls())
 invisible(gc())
