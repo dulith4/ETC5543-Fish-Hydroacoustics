@@ -71,25 +71,31 @@ run_script <- function(path) {
 # Example pipeline — adjust to your files: (un)comment as needed. and if you only running one script,
 #remove the comma after the last entry.
 scripts <- c(
-  # "00_dependencies.R",  # (optional; only if you want to re-snapshot packages)
-  # "00_smoke_test.R",  # (optional; quick environment check)
-  # "Analysis/data_exploration.R", # (optional; EDA)
-  # "Analysis/01_data_exploration.R", # (Sanity checks of raw data vs quintile-transformed frequency table)
-  # "Analysis/01_data_transformation.R",  # (optional; data cleaning)
-  # "Analysis/02_feature_engineering.R", # (optional; feature extraction)
-  # "Analysis/02a_check_transformations.R",  # size-standardisation + backscatter
-  # "Analysis/02b_fish_quantiles.R", # fish frequency quantiles
-  # "Analysis/03_classification_original.R", # (long-running; original dataset)
-  # "Analysis/03_classification.R", # (long-running; balanced dataset)
-  # "Analysis/03a_rnn_reproduction.R", # (long-running; uses Keras/TF)
-  # "Analysis/03b_features_fish_level.R", # (long-running; fish-level features)
-  # "Analysis/utils_data.R", # (utility functions; load & lightly transform data)
-  # "Analysis/utils_results.R", # (utility functions; to evaluate models results)
-  # "Analysis/view_results_original.R", # (view original data model results)
-  # "Analysis/view_results_quintiles.R", # (view quintile-transformed data model results)
-  # "Analysis/view_results_rnn.R", # (view RNN model results)
+  # "00_dependencies.R",              # (optional; re-snapshot packages)
+  # "00_smoke_test.R",                # (optional; quick env check)
+  
+  # Data prep / transforms
+  # "Analysis/02a_check_transformations.R",   # size-standardisation + backscatter
+  # "Analysis/02b_fish_quantiles.R",          # quintile summary (5 per fish)
+  
+  # Modelling (original structures)
+  # "Analysis/03_classification_original.R",  # AutoML on original per-ping wide table
+  # "Analysis/03a_rnn_reproduction.R",        # RNN reproduction (TF/Keras)
+  
+  # Modelling (quintiles)
+  # "Analysis/03_classification.R",           # AutoML on quintile-transformed data
+  
+  # Modelling (backscatter variants)
+  # "Analysis/03b_automl_backscatter.R",      # AutoML per-ping + 5-ping block mean
+  
+  
+  # Viewers (no training; expect artifacts to exist)
+  # "Analysis/view_results_original.R",       # viewer for 03_classification_original.R
+  # "Analysis/view_results_quintiles.R",      # viewer for 03_classification.R
+  # "Analysis/view_results_rnn.R",            # viewer for 03a_rnn_reproduction.R
+  # "Analysis/view_results_automl.R",         # viewer for 03b_automl_backscatter.R
+  
 )
-
 invisible(lapply(scripts, run_script))
 
 cat("\nAll selected scripts finished. ✅\n")

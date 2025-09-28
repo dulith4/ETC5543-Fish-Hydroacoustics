@@ -16,10 +16,11 @@
 library(tidyverse)
 library(lubridate)
 library(forcats)
+library(glue)
 
 # Modelling frameworks
 library(h2o)
-library(tidymodels) 
+library(tidymodels)
 
 # Evaluation
 library(yardstick)
@@ -35,7 +36,6 @@ library(forecast)
 # Deep learning
 library(keras)
 library(tensorflow)
-library(h2o)
 
 # Utilities
 library(here)
