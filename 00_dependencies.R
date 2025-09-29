@@ -13,13 +13,14 @@
 
 
 # Core tidyverse
+suppressPackageStartupMessages({
 library(tidyverse)
 library(lubridate)
 library(forcats)
 library(glue)
 
 # Modelling frameworks
-library(h2o)
+library(h2o)          # v3.46.0.7 (pinned in renv.lock)
 library(tidymodels)
 
 # Evaluation
@@ -48,3 +49,5 @@ library(janitor)
 # Optional but useful for EDA / plots
 library(GGally)
 library(ggstats)
+  
+})
