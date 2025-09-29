@@ -10,3 +10,8 @@ if (interactive() && .Platform$OS.type == "windows") {
 # Activate renv for this project
 source("renv/activate.R", local = TRUE)
 
+if (requireNamespace("reticulate", quietly = TRUE)) {
+  venv <- file.path(Sys.getenv("USERPROFILE"), "OneDrive", "Documents", ".virtualenvs", "r-keras")
+  if (dir.exists(venv)) reticulate::use_virtualenv(venv, required = TRUE)
+}
+
