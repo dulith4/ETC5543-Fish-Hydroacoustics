@@ -1,3 +1,5 @@
+Sys.setenv(RENV_PATHS_LIBRARY_ROOT = "C:/R/renv-lib")
+
 source("renv/activate.R")
 # --- Project-local renv paths (avoid OneDrive locks on Windows) ---
 if (interactive() && .Platform$OS.type == "windows") {
