@@ -9,6 +9,14 @@
     ]
   },
   "Packages": {
+    "h2o": {
+      "Package": "h2o",
+      "Version": "3.46.0.7",
+      "Source": "URL",
+      "RemoteType": "url",
+      "RemoteUrl": "https://h2o-release.s3.amazonaws.com/h2o/rel-3.46.0/7/R/src/contrib/h2o_3.46.0.7.tar.gz",
+      "Path": "C:\\Users\\hansa\\AppData\\Local/R/cache/R/renv/source/url/cec35b6014ad297e9d3eef47e24c4b54.tar.gz"
+    },
     "renv": {
       "Package": "renv",
       "Version": "1.1.5",
