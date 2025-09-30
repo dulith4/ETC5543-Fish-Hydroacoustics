@@ -89,5 +89,18 @@ outputs/tables/fish_*_tsfeat*.rds
 # generated ROC images (not tracked)
 figures/roc_*.png
 
+# --- renv local libraries & cache ---
+renv/library/
+renv/cache/
+.Rprofile.user
+
+
 # Python Env Files
 .venv/
+**/.virtualenvs/
+**/r-keras/
+**/r-keras/**
+
+# --- OS/editor cruft ---
+.DS_Store
+Thumbs.db
