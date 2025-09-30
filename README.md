@@ -1,210 +1,127 @@
 # ETC5543-Fish-Hydroacoustics
 
-## Before Cloning or Pulling – Read This First
+## ⚠️ Important:
 
-This repository’s initial dataset is ~60 MB.  
-Large files are stored using **Git LFS** (Large File Storage).  
-If you do not have Git LFS set up correctly, you may only get a small placeholder file (~100 bytes) instead of the real dataset.
+The Quickstart only covers the bare minimum.
+👉 Make sure to read the full instructions below once, especially if you are:
 
+- setting up Python (Keras/TensorFlow)
 
-### 1. Install Git LFS (only once per computer)
+- adding new packages
 
-🔗 Official site: [https://git-lfs.com/](https://git-lfs.com/)
+- or collaborating with others.
 
-Choose your OS:
+## 🚀 Quickstart
 
-- **Windows**: Download and run the installer from [https://git-lfs.com/](https://git-lfs.com/)  
-  (Recent Git for Windows installers may already include LFS, if so go to next step.)
-- **macOS**:  
-  ```bash
-  brew install git-lfs
-  ```
-  
-- **Linux (Debian/Ubuntu):**
-
-  ```bash
-  sudo apt install git-lfs
-  ```
-- **Linux (Fedora/RHEL):**
-
-  ```bash
-  sudo dnf install git-lfs
-  ```
+**Run these commands after cloning**:
 
 
-First-time setup (once per computer, in git bash or terminal (MUST DO)):
-
+#### 1. Clone with Git LFS
 ```bash
+git clone <REPO-URL>
+cd ETC5543-Fish-Hydroacoustics
 git lfs install
-```
-
-## Cloning the repository (with large files)
-
-```bash
-git clone <REPO-URL>
-cd ETC5543-Fish-Hydroacoustics
 git lfs pull
 ```
+#### 2. In R (restore pinned packages)
+install.packages("renv")
+renv::restore(prompt = FALSE)
 
-**If you cloned before LFS was enabled (2025‑08‑10), please delete your local copy and reclone.**
+#### 3. Sanity check
+Rscript 00_smoke_test.R
 
-```bash
-rm -rf ETC5543-Fish-Hydroacoustics
-git clone <REPO-URL>
-cd ETC5543-Fish-Hydroacoustics
-git lfs pull
+✅ You should see TensorFlow 2.15, Keras 2.15, H2O loaded (but not running), and “All checks passed”.
 
-```
+## ⚠️ Environment Setup – Do This First
 
-## Troubleshooting LFS Files
+This project uses **renv (R)** and a dedicated **Python virtualenv** for TensorFlow/Keras.  
+To ensure reproducibility, everyone (new or existing collaborator) must follow these steps.
 
-Symptoms:
+### 1. Git LFS (Large File Storage)
 
-- `file.size()` in R is ~100–200 bytes
-- `readRDS()` says “unknown input format”
+The dataset (~60 MB) is stored via Git LFS.  
+If you don’t set up LFS, you’ll only get tiny pointer files.
 
-```bash
-git lfs pull
-git lfs checkout data/TSresponse_clean.RDS
+- Install LFS once per computer:  
+  ```bash
+  git lfs install
+After cloning or pulling:
+  git lfs pull
+  ```
 
-```
+### 2. R Environment (renv)
 
-## OneDrive/Dropbox Users
+We pin all R packages with `renv`.
 
-If your repo is inside OneDrive, Dropbox, or iCloud:
-Mark the repo folder as "Always keep on this device" so that large files stay downloaded.
+After cloning or pulling:  
 
-## Workflow for Contributing
-
-If you change or add large data files (e.g., .RDS, .rds, .csv > 50 MB):
-
-Save the file into the data/ folder.
-
-If new type, track it with:
-
-```bash
-git lfs track "*.RDS" "*.rds"
-git add .gitattributes
-git commit -m "Track RDS files in LFS"
-
-```
-(Already set for .RDS/.rds.)
-
-Commit and push as usual:
-
-```bash
-git add data/<filename>
-git commit -m "Update dataset"
-git push
-
-```
-
-## Reproducibility (renv)
-
-This repo pins package versions with **renv**.
-
-### Restore the environment
 ```r
 install.packages("renv")
-renv::restore()   # installs the exact package versions from renv.lock
+renv::restore(prompt = FALSE)
+```
+This will install the exact R package versions defined in `renv.lock`.
 
-## How to run (end-to-end)
+  **Important**: Do not manually upgrade/downgrade packages.
+  If you add a new package, first add it to 00_dependencies.R, then run:
+  
+```r
+source("00_dependencies.R")
+renv::snapshot(type = "explicit")
+```
+Commit the updated `renv.lock`.
 
-```bash
-git lfs install
-git lfs pull
-R -e "install.packages('renv'); renv::restore()"
+### 3. Python (TensorFlow/Keras via reticulate)
 
-Rscript Analysis/03_classification_original.R
+Some scripts (e.g., RNNs) require Python. We pin **TensorFlow 2.15.0** and **Keras 2.15.0**.
+Each collaborator must create this environment locally (not tracked in Git).
 
-
-## Python (Keras/TensorFlow) Setup
-
-Some scripts (e.g. `Analysis/03_rnn_classification.R`) use Keras/TensorFlow via **reticulate**.  
-You need a dedicated Python virtual environment (not tracked in Git).  
-We pin TensorFlow/Keras to **v2.15** for compatibility with the R `keras` interface.
-
----
-
-
-### 1. Create a Python virtual environment
+Create the venv:
 
 ```bash
-# Windows (PowerShell):
+# Windows (PowerShell)
 python -m venv "%USERPROFILE%\.virtualenvs\r-keras"
 
-# Mac/Linux:
+# macOS/Linux
 python3 -m venv ~/.virtualenvs/r-keras
-
 ```
-### 2. Activate the virtual environment
+
+**Activate it and install packages:**
 
 ```bash
-# Windows:
+# Windows
 %USERPROFILE%\.virtualenvs\r-keras\Scripts\activate
 
-# Mac/Linux:
+# macOS/Linux
 source ~/.virtualenvs/r-keras/bin/activate
+
+pip install "numpy<2" tensorflow==2.15.0 keras==2.15.0 tf-keras==2.15.1
 ```
 
-### 3. Install the required Python packages
+**Tell R to use it (already set up in code):**
 
-```bash
+Our `00_dependencies.R` and `00_smoke_test.R` automatically search for the venv in:
 
-pip install "numpy<2" tensorflow==2.15 keras==2.15 tf-keras==2.15.1
+  - `~/Documents/.virtualenvs/r-keras` 
 
-```
+  - `~/OneDrive/Documents/.virtualenvs/r-keras`
 
-### 4. Tell R to use this environment
-
-At the start of your R session (or in `.Rprofile`):
+So as long as you created it there, **no manual change needed**.
+Advanced users can override via:
 
 ```r
-reticulate::use_virtualenv("C:/Users/<your-username>/Documents/.virtualenvs/r-keras", required = TRUE)
-```
-(Adjust the path for Mac/Linux: ~/.virtualenvs/r-keras)
-
-### 5. Sanity check
-
-```r
-library(tensorflow)
-tensorflow::tf_config()   # should show TensorFlow v2.15.0
-
-library(keras)
-keras::is_keras_available()   # should return TRUE
+options(fishhydro.rkeras.path = "C:/custom/path/to/r-keras")
 ```
 
-### Notes
+### 4. Quick Health Check
 
-- The R keras package is deprecated; we use it intentionally with TensorFlow 2.15 for compatibility.
-
-- Do not upgrade to TensorFlow 2.16+ or Keras 3+, as the R interface is not yet stable with those versions.
-
-- Each collaborator must create this virtual environment locally. The .virtualenvs/ folder is ignored by Git.
-
-### Troubleshooting
-
-- **Error:** `AttributeError: module 'tensorflow' has no attribute 'VERSION'`  
-  → Cause: wrong TF/Keras version.  
-  → Fix: Reinstall pinned versions inside the virtualenv:  
-  ```bash
-  pip install --upgrade --force-reinstall "tensorflow==2.15.0" "keras==2.15.0" "tf-keras==2.15.1"
-```
-- Error: `keras::is_keras_available()` returns `FALSE`
-→ Make sure you called `reticulate::use_virtualenv(".../r-keras", required = TRUE)` before loading keras in R.
-
-## Quick Health Check
-
-**Run this check once after cloning the repo or updating dependencies to confirm everything works.**
-
-After installing R and Python dependencies, run the smoke test:
+Run this after setup (and after pulling updates):
 
 ```bash
 Rscript 00_smoke_test.R
 ```
-### Expected output:
+✅ Expected:
 
-- R version is printed
+- R version printed
 
 - ggplot2 OK
 
@@ -212,49 +129,40 @@ Rscript 00_smoke_test.R
 
 - TensorFlow version 2.15.0
 
-- Keras available: TRUE
+- Keras version 2.15.0
 
-- **All checks passed ✅**
+- H2O loaded but not running (that’s normal)
 
-#### Notes for OneDrive users
+- All checks passed
 
-If your `.virtualenvs/r-keras` is inside **OneDrive**, paths may vary (e.g., `C:/Users/<name>/OneDrive/Documents/.virtualenvs/r-keras`).  
-The provided `00_smoke_test.R` script automatically checks both standard `Documents/` and `OneDrive/Documents/` locations and uses whichever exists.
+If this fails → check Python venv and rerun the install commands above.
 
-If this script runs without errors, your environment is correctly set up.
 
-## Run Everything (with environment checks)
+### 5. Collaborator Workflow
 
-```bash
-Rscript run_all.R
+- **Daily use (after pull):**
+
+```r
+source("00_dependencies.R")
 ```
 
-What it does (briefly):
+This activates renv, checks TF/Keras venv, and loads packages.
 
-  - Verifies core R deps (`ggplot2`, `reticulate`, `renv`)
+- **If you add a new R package**:
+  Add it to `00_dependencies.R` → run `renv::snapshot(type = "explicit")` → commit `renv.lock`.
 
-  - Finds and activates the r-keras Python virtualenv automatically
+- **Do NOT commit**:
 
-  - Prints TensorFlow/Keras versions and keras::is_keras_available()
+  - Your Python venv (`.virtualenvs/`)
 
-  - Optionally restores R packages from renv.lock if out of sync
+  - `renv/library/` (local cache; ignored by Git)
 
-  - Executes the main analysis scripts (you can edit the list inside run_all.R)
+  - Any temp logs or cache files
 
-⚠️ Some scripts (e.g., deep-learning / RNN) may take a long time to run.
-Start with Analysis/03_classification_original.R if you want a quicker pass.
+- Safe to commit:
 
-Where to create the `r-keras` virtualenv
+  - Updated R scripts
 
-Create it in one of these common locations so the scripts can auto-detect it:
+  - Updated `00_dependencies.R`
 
-  - **Windows (local Documents):**
-  C:/Users/<username>/Documents/.virtualenvs/r-keras
-
-  - **Windows (OneDrive Documents):**
-  C:/Users/<username>/OneDrive/Documents/.virtualenvs/r-keras
-
-  - **macOS/Linux:**
-  ~/Documents/.virtualenvs/r-keras or ~/.virtualenvs/r-keras
-
-(If you place it elsewhere, edit `run_all.R` or set it in `.Rprofile` via `reticulate::use_virtualenv()`.)
+  - Updated `renv.lock` (when packages change)
