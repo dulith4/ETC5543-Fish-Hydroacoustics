@@ -24,11 +24,16 @@ git lfs install
 git lfs pull
 ```
 #### 2. In R (restore pinned packages)
+
+```r
 install.packages("renv")
 renv::restore(prompt = FALSE)
-
+```
 #### 3. Sanity check
+
+```bash
 Rscript 00_smoke_test.R
+```
 
 ✅ You should see TensorFlow 2.15, Keras 2.15, H2O loaded (but not running), and “All checks passed”.
 

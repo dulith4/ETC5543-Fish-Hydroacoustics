@@ -29,21 +29,17 @@ venv_path <- getOption(
 
 use_virtualenv(venv_path, required = TRUE)
 
-# Soft checks (don’t stop the session, just message) for TF/Keras in the venv
-ok_tf <- try(py_run_string("
-import importlib
-assert importlib.util.find_spec('tensorflow')
-assert importlib.util.find_spec('keras')
-"), silent = TRUE)
+# --- Soft checks: verify TF/Keras are importable (no false alarms) ----
+has_tf    <- reticulate::py_module_available("tensorflow")
+has_keras <- reticulate::py_module_available("keras")
 
-if (inherits(ok_tf, "try-error")) {
-  message(">> Python deps missing in venv '", venv_path, "'. ",
-          "Run in R *or* a shell:\n",
-          "   ", file.path(venv_path, 'Scripts', 'python.exe'),
+if (!(has_tf && has_keras)) {
+  message(">> Python deps missing in venv '", venv_path, "'. Run in R *or* a shell:\n",
+          "   ", file.path(venv_path, "Scripts", "python.exe"),
           " -m pip install tensorflow==2.15.0 keras==2.15.0")
 } else {
-  # optional: print detected versions once (quietly if anything fails)
-  try(py_run_string("
+  # Optional: confirm versions once
+  try(reticulate::py_run_string("
 import tensorflow as tf, keras
 print('TF:', getattr(tf,'__version__','<none>'))
 print('Keras:', getattr(keras,'__version__','<none>'))

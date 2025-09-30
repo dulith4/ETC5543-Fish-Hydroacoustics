@@ -109,7 +109,6 @@ variants <- list(variant_perping, variant_blockmean)
 if (!requireNamespace("h2o", quietly = TRUE)) install.packages("h2o")
 library(h2o)
 h2o.init(nthreads = -1)
-on.exit(try(h2o.shutdown(prompt = FALSE), silent = TRUE))
 
 run_automl <- function(v) {
   message("\n=== AutoML variant: ", v$name, " ===")
