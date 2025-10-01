@@ -336,78 +336,101 @@ view_results_rnn <- function(open_roc = TRUE, positive = "SMB", thr = NULL) {
 # AutoML viewer helpers (for 03b_automl_backscatter.R)
 # ------------------------------------------------------------------------------
 
-# Load leaderboard by variant
-load_lb_automl <- function(name = c("original","original_blocks")) {
+# ---- AutoML loaders (support all variants) -----------------------------------
+
+load_lb_automl <- function(name = c(
+  "original","original_blocks",
+  "quintiles_allfreq","quintiles_feats",
+  "median_allfreq","median_feats"
+)) {
   name <- match.arg(name)
-  path <- .latest("outputs/tables", glue("^leaderboard_{name}_\\d{{6,8}}_\\d{{6}}\\.rds$"))
+  path <- .latest("outputs/tables",
+                  glue::glue("^leaderboard_{name}_\\d{{6,8}}_\\d{{6}}\\.rds$"))
   lb <- readr::read_rds(path)
   attr(lb, "path") <- path
   lb
 }
 
-# Load predictions (VALID or TEST) by variant
-load_preds_automl <- function(name = c("original","original_blocks"),
-                              split = c("valid","test")) {
+load_preds_automl <- function(
+    name = c("original","original_blocks","quintiles_allfreq","quintiles_feats",
+             "median_allfreq","median_feats"),
+    split = c("valid","test")
+) {
   name  <- match.arg(name)
   split <- match.arg(split)
-  path <- .latest("outputs/tables", glue("^preds_{name}_{split}_\\d{{6,8}}_\\d{{6}}\\.rds$"))
+  path <- .latest("outputs/tables",
+                  glue::glue("^preds_{name}_{split}_\\d{{6,8}}_\\d{{6}}\\.rds$"))
   pr <- readr::read_rds(path)
   attr(pr, "path") <- path
   pr
 }
 
-# Show ROC for a given variant
-show_roc_automl <- function(name = c("original","original_blocks"), open = TRUE) {
+show_roc_automl <- function(
+    name = c("original","original_blocks","quintiles_allfreq","quintiles_feats",
+             "median_allfreq","median_feats"),
+    open = TRUE
+) {
   name <- match.arg(name)
   path <- .latest(c("outputs/figures","figures"),
-                  glue("^roc_{name}_\\d{{6,8}}_\\d{{6}}\\.png$"))
+                  glue::glue("^roc_{name}_\\d{{6,8}}_\\d{{6}}\\.png$"))
   message("ROC image: ", normalizePath(path))
   if (open && .Platform$OS.type == "windows") shell.exec(normalizePath(path))
   invisible(path)
 }
 
-# One-call AutoML viewer
-view_results_automl <- function(name = c("original","original_blocks"),
-                                open_roc = TRUE, n_top = 10,
-                                positive = "SMB") {
+# ---- One-call AutoML viewer (VALID optional) ---------------------------------
+
+view_results_automl <- function(
+    name = c("original","original_blocks","quintiles_allfreq","quintiles_feats",
+             "median_allfreq","median_feats"),
+    open_roc = TRUE, n_top = 10, positive = "SMB"
+) {
   name <- match.arg(name)
   
   lb <- load_lb_automl(name)
-  pv <- load_preds_automl(name, "valid")
   pt <- load_preds_automl(name, "test")
+  
+  # VALID is optional (tsfeatures runs saved TEST only)
+  pv <- try(load_preds_automl(name, "valid"), silent = TRUE)
+  have_valid <- !inherits(pv, "try-error")
   
   cat("\n==== AutoML — ", toupper(name), " ====\n", sep = "")
   cat("\nLeaderboard (top ", n_top, ")\n", sep = "")
   print(dplyr::slice_head(as_tibble(lb), n = n_top))
   cat("\nLoaded leaderboard from: ", attr(lb, "path"), "\n", sep = "")
   
-  # Choose probability column
+  # Choose probability column for positive class
   pc <- .prob_col(pt, positive)
   
-  # Threshold from VALID (F1-opt)
-  thr <- f1_threshold(truth = pv$species, prob = pv[[.prob_col(pv, positive)]], positive = positive)
+  # AUC from TEST probs
+  auc_test <- auc_from_probs(truth = pt$species, prob = pt[[pc]], positive = positive)
+  cat("AUC (TEST): ", round(auc_test, 3), "\n", sep = "")
   
-  # TEST summaries
-  neg <- setdiff(unique(pt$species), positive)[1]
-  pred_thr <- ifelse(pt[[pc]] >= thr, positive, neg)
-  acc_thr  <- mean(pred_thr == pt$species)
-  cm_thr <- table(
-    actual = factor(pt$species, levels = c(neg, positive)),
-    pred   = factor(pred_thr,     levels = c(neg, positive))
-  )
+  # Argmax accuracy (if predict column present)
+  acc_argmax <- if ("predict" %in% names(pt)) mean(pt$species == pt$predict) else NA_real_
   
-  acc_argmax <- mean(pt$species == pt$predict)
-  auc_test   <- auc_from_probs(pt$species, pt[[pc]], positive)
+  if (have_valid) {
+    thr <- f1_threshold(truth = pv$species, prob = pv[[.prob_col(pv, positive)]], positive = positive)
+    neg <- setdiff(unique(pt$species), positive)[1]
+    pred_thr <- ifelse(pt[[pc]] >= thr, positive, neg)
+    acc_thr  <- mean(pred_thr == pt$species)
+    cm_thr <- table(
+      actual = factor(pt$species, levels = c(neg, positive)),
+      pred   = factor(pred_thr,     levels = c(neg, positive))
+    )
+    cat("F1-opt threshold (from VALID): ", signif(thr, 6), "\n", sep = "")
+    cat("Accuracy @ threshold (TEST): ", sprintf("%.3f", acc_thr), "\n", sep = "")
+    cat("Argmax accuracy (TEST): ", sprintf("%.3f", acc_argmax), "\n\n", sep = "")
+    print(cm_thr)
+  } else {
+    cat("F1-opt threshold: skipped (no VALID predictions saved for this variant).\n")
+    cat("Argmax accuracy (TEST): ", sprintf("%.3f", acc_argmax), "\n", sep = "")
+  }
   
-  cat(glue("\nAUC (TEST): {round(auc_test,3)}",
-           "\nF1-opt threshold (from VALID): {round(thr,6)}",
-           "\nAccuracy @ threshold (TEST): {round(acc_thr,3)}",
-           "\nArgmax accuracy (TEST): {round(acc_argmax,3)}\n\n"))
-  print(cm_thr)
-  
-  show_roc_automl(name, open = open_roc)
-  
-  invisible(list(leaderboard = lb, preds_valid = pv, preds_test = pt,
-                 auc = auc_test, threshold = thr, acc_thr = acc_thr,
-                 acc_argmax = acc_argmax, cm = cm_thr))
+  # ROC (if present)
+  roc_path <- try(show_roc_automl(name, open = open_roc), silent = TRUE)
+  invisible(list(leaderboard = lb,
+                 preds_test = pt,
+                 preds_valid = if (have_valid) pv else NULL,
+                 auc = auc_test))
 }
