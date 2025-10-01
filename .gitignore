@@ -104,3 +104,4 @@ renv/cache/
 # --- OS/editor cruft ---
 .DS_Store
 Thumbs.db
+/.quarto/

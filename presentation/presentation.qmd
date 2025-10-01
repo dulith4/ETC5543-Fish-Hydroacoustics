@@ -1,0 +1,26 @@
+---
+title: "Fish Hydroacoustics Project"
+subtitle: "ETC5543 – Business Analytics Creative Activity"
+author: "Dulitha Perera"
+date: today
+format:
+  presentation-revealjs+letterbox:
+    slide-number: true
+    footer: "ETC5543 — Fish Hydroacoustics"
+    incremental: false
+execute:
+  echo: false
+  warning: false
+  message: false
+---
+
+
+## Title slide
+This is our starting slide.
+
+---
+
+## Intro
+- Goal
+- Data (F45–F170)
+- Two species (LT vs SMB)
