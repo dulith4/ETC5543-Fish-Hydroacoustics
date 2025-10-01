@@ -86,6 +86,9 @@ scripts <- c(
   # Modelling (quintiles)
   # "Analysis/03_classification.R",           # AutoML on quintile-transformed data
   
+  # Modelling (tsfeatures variants)
+  # "Analysis/05_automl_tsfeatures.R",        # AutoML on tsfeature data 
+  
   # Modelling (backscatter variants)
   # "Analysis/03b_automl_backscatter.R",      # AutoML per-ping + 5-ping block mean
   
@@ -95,7 +98,7 @@ scripts <- c(
   # "Analysis/view_results_quintiles.R",      # viewer for 03_classification.R
   # "Analysis/view_results_rnn.R",            # viewer for 03a_rnn_reproduction.R
   # "Analysis/view_results_automl.R",         # viewer for 03b_automl_backscatter.R
-  
+  # "Analysis/view_results_tsfeatures.R"      # viewer for 05_automl_tsfeatures.R 
 )
 invisible(lapply(scripts, run_script))
 
