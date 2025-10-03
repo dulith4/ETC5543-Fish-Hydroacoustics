@@ -7,11 +7,14 @@
 #     - quintiles_feats    : feasts features only (5 rows per fish; by-quantile)
 #     - median_allfreq     : F45–F170 + feasts features (1 row per fish; medians)
 #     - median_feats       : feasts features only (1 row per fish; medians)
+#
 # WHAT IT DOES
 #   - Ensures inputs exist; loads 4 datasets
 #   - Stratified 60/40 split by fish within species (so TEST contains both classes)
 #   - H2O AutoML with 5-fold CV; TEST held out for leaderboard & ROC
 #   - Saves leaderboard, TEST predictions, metrics JSON, ROC PNG
+#   - Saves a MOJO per variant via utils_models.R (tags: tsf_q_all, tsf_q_feat, tsf_m_all, tsf_m_feat)
+#
 # HOW TO VIEW
 #   source("Analysis/view_results_tsfeatures.R")
 # ==============================================================================
@@ -24,6 +27,7 @@ suppressPackageStartupMessages({
   library(glue)
   library(ggplot2)
   library(lubridate)
+  library(jsonlite)
   library(h2o)
 })
 
@@ -31,6 +35,7 @@ suppressPackageStartupMessages({
 dir.create("outputs/tables", recursive = TRUE, showWarnings = FALSE)
 dir.create("figures",        recursive = TRUE, showWarnings = FALSE)
 ts_tag <- format(with_tz(Sys.time(), "Australia/Melbourne"), "%Y%m%d_%H%M%S")
+seed   <- 73
 
 # ---------- ensure inputs ------------------------------------------------------
 paths_needed <- c(
@@ -45,33 +50,31 @@ if (!all(file.exists(paths_needed))) {
   source(builder, local = TRUE)
   stopifnot(all(file.exists(paths_needed)))
 }
+
 Q_ALL  <- readRDS(paths_needed[1])
 Q_ONLY <- readRDS(paths_needed[2])
 M_ALL  <- readRDS(paths_needed[3])
 M_ONLY <- readRDS(paths_needed[4])
 
-# ---------- helpers (define BEFORE anything uses them) -------------------------
-# Simple AUC by trapezoid on ROC curve
-auc_from_probs <- function(truth, score, positive = "SMB") {
-  y <- factor(truth, levels = c(setdiff(unique(truth), positive)[1], positive))
-  pos <- as.integer(y == positive)
-  neg <- 1 - pos
-  if (sum(pos) == 0 || sum(neg) == 0) return(NA_real_)
-  ord <- order(score, decreasing = TRUE)
-  tp <- cumsum(pos[ord]); fp <- cumsum(neg[ord])
-  tpr <- tp / sum(pos);    fpr <- fp / sum(neg)
-  # prepend origin for trapezoid integration
-  tpr <- c(0, tpr); fpr <- c(0, fpr)
-  sum(diff(fpr) * (head(tpr, -1) + tail(tpr, -1)) / 2)
-}
-
-
+# ---------- helpers ------------------------------------------------------------
 feat_cols <- function(df) setdiff(names(df), intersect(names(df), c("species","fishNum","quantile")))
 prob_col  <- function(df, positive = "SMB") {
   if (positive %in% names(df)) return(positive)
   pc <- names(df)[grepl("^p", names(df))]
   if (length(pc)) return(pc[1])
   stop("No probability column found.")
+}
+
+# Simple AUC by trapezoid on ROC curve
+auc_from_probs <- function(truth, score, positive = "SMB") {
+  y <- factor(truth, levels = c(setdiff(unique(truth), positive)[1], positive))
+  pos <- as.integer(y == positive); neg <- 1 - pos
+  if (sum(pos) == 0 || sum(neg) == 0) return(NA_real_)
+  ord <- order(score, decreasing = TRUE)
+  tp <- cumsum(pos[ord]); fp <- cumsum(neg[ord])
+  tpr <- tp / sum(pos);    fpr <- fp / sum(neg)
+  tpr <- c(0, tpr); fpr <- c(0, fpr)
+  sum(diff(fpr) * (head(tpr, -1) + tail(tpr, -1)) / 2)
 }
 
 # Stratified 60/40 split BY FISH within species
@@ -114,28 +117,19 @@ split_by_fish_strat <- function(df, seed = 73) {
   list(train = tr, test = te)
 }
 
-# AUC via ROC trapezoid (used only if we ever need to compute test AUC ad-hoc)
-auc_from_probs <- function(truth, score, positive = "SMB") {
-  y <- factor(truth, levels = c(setdiff(unique(truth), positive)[1], positive))
-  pos <- as.integer(y == positive); neg <- 1 - pos
-  if (sum(pos) == 0 || sum(neg) == 0) return(NA_real_)
-  ord <- order(score, decreasing = TRUE)
-  tp <- cumsum(pos[ord]); fp <- cumsum(neg[ord])
-  tpr <- tp / sum(pos); fpr <- fp / sum(neg)
-  tpr <- c(0, tpr); fpr <- c(0, fpr)
-  sum(diff(fpr) * (head(tpr, -1) + tail(tpr, -1)) / 2)
-}
-
 # H2O connection helpers (compatible with 3.46)
 h2o_up     <- function() !is.null(tryCatch(h2o.getConnection(), error = function(e) NULL))
 ensure_h2o <- function(heap = "6G") { if (!h2o_up()) h2o.init(nthreads = -1, max_mem_size = heap); invisible(TRUE) }
 
+# ---- model saver -------------------------------------------------------------
+source("Analysis/utils_models.R")  # uses short tags, safe paths
+
 # ---------- variants -----------------------------------------------------------
 variants <- list(
-  list(name = "quintiles_allfreq", data = Q_ALL),
-  list(name = "quintiles_feats",   data = Q_ONLY),
-  list(name = "median_allfreq",    data = M_ALL),
-  list(name = "median_feats",      data = M_ONLY)
+  list(name = "quintiles_allfreq", data = Q_ALL,  tag = "tsf_q_all"),
+  list(name = "quintiles_feats",   data = Q_ONLY, tag = "tsf_q_feat"),
+  list(name = "median_allfreq",    data = M_ALL,  tag = "tsf_m_all"),
+  list(name = "median_feats",      data = M_ONLY, tag = "tsf_m_feat")
 )
 
 # ---------- init once ----------------------------------------------------------
@@ -164,12 +158,14 @@ run_one <- function(v, seed = 73, budget = 600, positive = "SMB") {
     nfolds            = 5,
     seed              = seed,
     balance_classes   = FALSE
+    # XGBoost is auto-skipped if not available
   )
   
   best   <- aml@leader
   perfcv <- h2o.performance(best, xval = TRUE)
   cv_auc <- h2o.auc(perfcv)
   
+  # TEST predictions
   pt <- as.data.frame(h2o.predict(best, hex_te)) |>
     bind_cols(species = as.character(as.data.frame(hex_te)$species), .before = 1)
   
@@ -177,7 +173,7 @@ run_one <- function(v, seed = 73, budget = 600, positive = "SMB") {
   truth <- as.integer(pt$species == positive)
   score <- pt[[pc]]
   
-  # ROC points (guard if a class is missing)
+  # ROC (guard if TEST misses a class)
   if (sum(truth) > 0 && sum(1 - truth) > 0) {
     ord <- order(score, decreasing = TRUE)
     tp <- cumsum(truth[ord]); fp <- cumsum(1 - truth[ord])
@@ -202,26 +198,18 @@ run_one <- function(v, seed = 73, budget = 600, positive = "SMB") {
     width = 6.5, height = 5, dpi = 160
   )
   
+  # Save tables
   lb_path <- here("outputs","tables", glue("leaderboard_{v$name}_{ts_tag}.rds"))
   pt_path <- here("outputs","tables", glue("preds_{v$name}_test_{ts_tag}.rds"))
   readr::write_rds(as_tibble(aml@leaderboard), lb_path)
   readr::write_rds(as_tibble(pt), pt_path)
   
-  # ---- collect metrics --------------------------------------------------------
-  # CV AUC
-  cv_auc <- h2o.auc(perfcv)
-  
-  # CV F1-optimal threshold (grab threshold at max F1 from CV curve)
+  # Metrics JSON
   cv_thr <- tryCatch({
-    mf <- as.data.frame(h2o.metric(perfcv)) # has F1 & threshold
+    mf <- as.data.frame(h2o.metric(perfcv))
     mf$threshold[which.max(mf$F1)]
   }, error = function(e) NULL)
   
-  # TEST AUC (using saved preds + helper function)
-  pc <- prob_col(pt, positive)
-  test_auc <- auc_from_probs(pt$species, pt[[pc]], positive = positive)
-  
-  # Bundle up
   metrics <- list(
     variant   = v$name,
     n_train   = nrow(sp$train),
@@ -231,14 +219,23 @@ run_one <- function(v, seed = 73, budget = 600, positive = "SMB") {
     test_auc  = test_auc,
     roc_png   = fig_path
   )
-  
   readr::write_file(jsonlite::toJSON(metrics, pretty = TRUE, auto_unbox = TRUE),
                     here("outputs","tables", glue("automl_metrics_{v$name}_{ts_tag}.json")))
   
+  # ---- Save MOJO for this variant (short, stable tag) ------------------------
+  lb_full <- h2o.get_leaderboard(aml, extra_columns = "ALL")
+  save_h2o_artifacts(
+    model       = best,
+    tag         = v$tag,      # tsf_q_all / tsf_q_feat / tsf_m_all / tsf_m_feat
+    leaderboard = lb_full,
+    train       = hex_tr,
+    save_binary = TRUE
+  )
+  
+  message("Leader: ", best@algorithm, " | CV AUC: ", round(cv_auc, 3),
+          " | TEST AUC: ", round(test_auc, 3))
   invisible(TRUE)
 }
-
-
 
 # Retry wrapper: handle brief reconnect on Windows
 safe_run <- function(v) {
@@ -254,4 +251,6 @@ safe_run <- function(v) {
 }
 
 invisible(lapply(variants, safe_run))
-message("\nAutoML (tsfeatures) complete. Artifacts in outputs/tables and figures/.\n")
+message("\nAutoML (tsfeatures) complete. Tables/figures saved, and MOJOs written under outputs/models/tsf_*.\n")
+
+# (No global saver here — each variant saves its own MOJO)

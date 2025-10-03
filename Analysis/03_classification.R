@@ -199,3 +199,8 @@ invisible(h2o.download_mojo(leader, path = "outputs/models", get_genmodel_jar = 
 
 cat(glue("\nSaved model: {saved_path}\n"))
 
+# ---- 8. Save artifacts via utility (with leaderboard) ----
+source("Analysis/utils_models.R")
+lb   <- h2o.get_leaderboard(aml, extra_columns = "ALL")
+best <- best_from_aml(aml)
+save_h2o_artifacts(best, tag = "fish_ping", leaderboard = lb, train = train_hex, save_binary = TRUE)

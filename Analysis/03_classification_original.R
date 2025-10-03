@@ -240,5 +240,12 @@ cat(glue("\n==== ORIGINAL structure (TEST) ====\n",
          "Threshold (max F1 from VALID): {round(thr_v, 6)}\n"))
 print(cm_test)
 
+
+source("Analysis/utils_models.R")
+lb   <- h2o.get_leaderboard(aml, extra_columns = "ALL")
+best <- best_from_aml(aml)
+save_h2o_artifacts(best, tag = "original", leaderboard = lb, train = train_hex, save_binary = TRUE)
+
+
 # Done
 # h2o.shutdown(prompt = FALSE)  # uncomment if you want to stop H2O after run
