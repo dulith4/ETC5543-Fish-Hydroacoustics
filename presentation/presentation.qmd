@@ -8,11 +8,43 @@ format:
     slide-number: true
     footer: "ETC5543 — Fish Hydroacoustics"
     incremental: false
+    center: false          
+    margin: 0.06          
+    css: custom.scss
 execute:
   echo: false
   warning: false
   message: false
+execute-dir: project
 ---
+
+```{r}
+#| label: setup
+#| include: false
+suppressPackageStartupMessages({
+  library(tidyverse)
+  library(here)
+})
+
+# Make sure we're resolving from the project root (the .Rproj is already there)
+u_path <- here("Analysis", "utils_data.R")
+if (!file.exists(u_path)) {
+  stop("utils_data.R not found at: ", u_path,
+       "\nWorking dir: ", getwd(),
+       "\nTip: paths must be relative to the project root.")
+}
+source(u_path, local = TRUE)
+
+fish_raw <- load_fish_transformed(
+  raw_path  = here("data", "TSresponse_clean.RDS"),
+  use_cache = TRUE,
+  cache_path = here("outputs", "cache", "TS_clean_transformed.rds")
+)
+
+freq_cols <- names(fish_raw)[grepl("^F\\d+(?:\\.\\d+)?$", names(fish_raw))]
+stopifnot(length(freq_cols) > 0)
+
+```
 
 
 ## Title slide
@@ -24,3 +56,59 @@ This is our starting slide.
 - Goal
 - Data (F45–F170)
 - Two species (LT vs SMB)
+
+---
+
+---
+
+## Why fish hydroacoustics? {.smaller}
+- **Non-invasive** monitoring  
+- **Management:** distinguish **LT** vs **SMB**  
+- **Question:** can the **FRC (45–170 kHz)** classify species?  
+- **Outcome:** scalable pipeline for species ID & trends
+
+---
+
+## About the dataset {.smaller}
+- ~**30k** rows × **302** variables; two species (**LT**, **SMB**)  
+- Processed in **Echoview**  
+- Signals: **F45–F170** (Frequency Response Curve)  
+- Context: morphometrics, depth, speed, orientation  
+- Focus today: **frequency data only** for classification
+---
+
+---
+
+## Acoustic fingerprints: the Frequency Response Curve (FRC) {.smaller}
+
+:::: {.columns}
+::: {.column width="42%"}
+- **Different echoes (45–170 kHz)** → the **FRC**
+- Species show **distinct curve shapes**
+- Hypothesis: **FRC alone** can separate LT vs SMB
+:::
+
+::: {.column width="58%"}
+```{r}
+#| label: fig-frc-species
+#| fig-width: 7
+#| fig-height: 5
+#| fig-align: center
+
+freq_long <- fish_raw |>
+  dplyr::select(species, dplyr::all_of(freq_cols)) |>
+  tidyr::pivot_longer(-species, names_to = "frequency", values_to = "TS") |>
+  dplyr::mutate(frequency = readr::parse_number(frequency))
+
+ggplot(freq_long, aes(frequency, TS, colour = species, fill = species)) +
+  stat_summary(fun = mean, geom = "line", linewidth = 1) +
+  stat_summary(fun.data = mean_se, geom = "ribbon", alpha = 0.18, colour = NA) +
+  labs(x = "Frequency (kHz)", y = "Target Strength (dB)") +
+  theme_minimal(base_size = 13) +
+  theme(legend.position = "bottom", plot.margin = margin(5,5,0,5))
+```
+
+:::
+::::
+
+

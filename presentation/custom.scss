@@ -1,0 +1,32 @@
+/* Strong, safe overrides that sit on top of the Monash letterbox theme */
+
+/* Reveal.js uses CSS variables for base sizing — override them */
+:root {
+  /* Global text size across slides (default is ~40px) */
+  --r-main-font-size: 34px;      /* smaller overall */
+  --r-block-margin: 12px;
+  --r-heading2-size: 1.55em;     /* smaller H2 */
+}
+
+/* Tighter body text + list spacing */
+.reveal p,
+.reveal li { 
+  font-size: 0.95em !important; 
+  line-height: 1.28 !important; 
+}
+
+.reveal ul { margin: 0.4em 0 0.6em !important; }
+.reveal li { margin-bottom: 0.25em !important; }
+
+/* Headings not so massive */
+.reveal h2 {
+  font-size: var(--r-heading2-size) !important;
+  margin-bottom: .45em !important;
+}
+
+/* Column layout quality-of-life */
+.reveal .columns { gap: 1.2rem; align-items: center; }
+.reveal .column  { padding: 0 .5rem; }
+
+/* Figures: remove extra bottom space (esp. when no caption) */
+.reveal .quarto-figure { margin: 0 !important; }
