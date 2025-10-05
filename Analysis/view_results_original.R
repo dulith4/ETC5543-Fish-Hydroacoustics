@@ -28,7 +28,8 @@
 
 
 
-# For the original run, including your CV-F1 threshold (~0.300689):
+# view_results_original.R — ORIGINAL structure viewer
 source("Analysis/utils_results.R")
-view_results("original", open_roc = TRUE, n_top = 10, positive = "SMB", thr = 0.300689)
+# Shows leaderboard, AUC, baseline (0.50) summary, and clipped CV-F1 summary + band
+view_results("original", open_roc = TRUE, n_top = 10, positive = "SMB", thr = NULL)
 

@@ -25,5 +25,7 @@
 # ==============================================================================
 
 
+# view_results_quintiles.R — Quintiles viewer
 source("Analysis/utils_results.R")
+# Prints AUC, baseline (0.50), and clipped VALID-F1 (with band)
 view_results_quintiles(positive = "SMB")
