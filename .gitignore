@@ -105,3 +105,30 @@ renv/cache/
 .DS_Store
 Thumbs.db
 /.quarto/
+
+# R session cruft
+.Rhistory
+.RData
+.Rproj.user/
+*.Rproj
+
+# OS cruft
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Project outputs (generated)
+outputs/
+
+# Local deliverables (kits/zips, not source)
+deliverables/
+
+# Local data (inputs, scored outputs)
+data/
+
+# H2O logs (just in case you ever save any)
+*.out
+*.err
+
+# Templates Folder
+templates/
