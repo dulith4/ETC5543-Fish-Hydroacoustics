@@ -7,18 +7,17 @@ acc_threshold <- function(truth, prob, thr, positive = "SMB") {
 
 thr_max_acc <- function(truth, prob, positive = "SMB") {
   y <- factor(truth, levels = c(setdiff(unique(truth), positive)[1], positive))
-  # evaluate only at unique prob values + endpoints
   grid <- unique(c(0, sort(unique(prob)), 1))
   pred_pos <- outer(prob, grid, ">=")
-  pos <- as.integer(y == positive)
   neglab <- setdiff(levels(y), positive)[1]
   accs <- colMeans(ifelse(pred_pos, positive, neglab) == y)
   grid[which.max(accs)]
 }
 
-clip_thr <- function(t, lo = 0.05, hi = 0.95) max(lo, min(hi, t))
+# New policy clamp
+clip_thr <- function(t, lo = 0.40, hi = 0.70) max(lo, min(hi, t))
 
-# robust way to find the SMB probability column in H2O outputs
+# Robust probability-column picker (H2O-style outputs)
 prob_col <- function(df, positive = "SMB") {
   n <- names(df)
   if (positive %in% n) return(positive)
@@ -29,9 +28,9 @@ prob_col <- function(df, positive = "SMB") {
   setdiff(pcols, c("predict","species"))[1]
 }
 
-# nice one-liner to print the summary; returns the chosen policy threshold
+# One-line printer; returns the chosen policy threshold
 print_acc_summary <- function(name, pred_train = NULL, pred_valid = NULL, pred_test,
-                              positive = "SMB", clip = c(0.05, 0.95)) {
+                              positive = "SMB", clip = c(0.40, 0.70)) {
   pc_t <- prob_col(pred_test, positive)
   thr_pol <- if (!is.null(pred_valid)) {
     clip_thr(thr_max_acc(pred_valid$species, pred_valid[[prob_col(pred_valid, positive)]], positive),
@@ -39,8 +38,6 @@ print_acc_summary <- function(name, pred_train = NULL, pred_valid = NULL, pred_t
   } else NA_real_
   
   cat("\n=== ACCURACY SUMMARY —", name, "===\n")
-  
-  # Acc@0.50
   a05 <- c(
     if (!is.null(pred_train)) TRAIN = acc_threshold(pred_train$species, pred_train[[prob_col(pred_train, positive)]], 0.50, positive),
     if (!is.null(pred_valid)) VALID = acc_threshold(pred_valid$species, pred_valid[[prob_col(pred_valid, positive)]], 0.50, positive),
@@ -48,7 +45,6 @@ print_acc_summary <- function(name, pred_train = NULL, pred_valid = NULL, pred_t
   )
   cat("Acc@0.50 -> ", paste(sprintf("%s=%.3f", names(a05), a05), collapse = " | "), "\n", sep = "")
   
-  # Acc@policy (from VALID)
   if (is.finite(thr_pol)) {
     ap <- c(
       if (!is.null(pred_train)) TRAIN = acc_threshold(pred_train$species, pred_train[[prob_col(pred_train, positive)]], thr_pol, positive),
