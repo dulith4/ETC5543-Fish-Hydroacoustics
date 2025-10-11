@@ -94,7 +94,13 @@ suppressPackageStartupMessages({
   # Optional but useful for EDA / plots
   library(GGally)
   library(ggstats)
+  library(DiagrammeR)
+  
 })
+
+if (requireNamespace("DiagrammeRsvg", quietly = TRUE)) {
+  requireNamespace("rsvg", quietly = TRUE)
+}
 
 # --- H2O guard: avoid noisy error when the package is loaded but not initialized
 if ("package:h2o" %in% search()) {

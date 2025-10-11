@@ -76,6 +76,80 @@
       "Maintainer": "Kirill Müller <kirill@cynkra.com>",
       "Repository": "CRAN"
     },
+    "DiagrammeR": {
+      "Package": "DiagrammeR",
+      "Version": "1.0.11",
+      "Source": "Repository",
+      "Type": "Package",
+      "Title": "Graph/Network Visualization",
+      "Authors@R": "c( person(\"Richard\", \"Iannone\", , \"riannone@me.com\", role = c(\"aut\", \"cre\"), comment = c(ORCID = \"0000-0003-3925-190X\")), person(\"Olivier\", \"Roy\", , \"olivierroy71@hotmail.com\", role = \"aut\") )",
+      "Description": "Build graph/network structures using functions for stepwise addition and deletion of nodes and edges. Work with data available in tables for bulk addition of nodes, edges, and associated metadata. Use graph selections and traversals to apply changes to specific nodes or edges. A wide selection of graph algorithms allow for the analysis of graphs. Visualize the graphs and take advantage of any aesthetic properties assigned to nodes and edges.",
+      "License": "MIT + file LICENSE",
+      "URL": "https://rich-iannone.github.io/DiagrammeR/, https://github.com/rich-iannone/DiagrammeR",
+      "BugReports": "https://github.com/rich-iannone/DiagrammeR/issues",
+      "Depends": [
+        "R (>= 3.2)"
+      ],
+      "Imports": [
+        "dplyr (>= 1.0.7)",
+        "glue (>= 1.5.0)",
+        "htmltools (>= 0.5.2)",
+        "htmlwidgets (>= 1.5)",
+        "igraph (>= 1.4.0)",
+        "magrittr (>= 1.5)",
+        "purrr (>= 0.3.4)",
+        "RColorBrewer (>= 1.1-2)",
+        "readr (>= 2.1.1)",
+        "rlang (>= 1.1.0)",
+        "cli",
+        "rstudioapi (>= 0.7)",
+        "scales (>= 1.1)",
+        "stringr (>= 1.4)",
+        "tibble (>= 3.1)",
+        "tidyr (>= 1.1)",
+        "viridisLite (>= 0.4.2)",
+        "visNetwork (>= 2.1.0)"
+      ],
+      "Suggests": [
+        "curl",
+        "DiagrammeRsvg",
+        "knitr",
+        "rmarkdown",
+        "rsvg",
+        "testthat (>= 3.1.0)",
+        "withr"
+      ],
+      "Config/testthat/edition": "3",
+      "Encoding": "UTF-8",
+      "LazyData": "true",
+      "RoxygenNote": "7.3.1",
+      "NeedsCompilation": "no",
+      "Author": "Richard Iannone [aut, cre] (<https://orcid.org/0000-0003-3925-190X>), Olivier Roy [aut]",
+      "Maintainer": "Richard Iannone <riannone@me.com>",
+      "Repository": "CRAN"
+    },
+    "DiagrammeRsvg": {
+      "Package": "DiagrammeRsvg",
+      "Version": "0.1",
+      "Source": "Repository",
+      "Type": "Package",
+      "Title": "Export DiagrammeR Graphviz Graphs as SVG",
+      "Date": "2016-02-02",
+      "Authors@R": "person( \"Richard\", \"Iannone\" , role = c(\"aut\", \"cre\") , email = \"riannone@me.com\" )",
+      "Maintainer": "Richard Iannone <riannone@me.com>",
+      "Description": "Allows for export of DiagrammeR Graphviz objects to SVG.",
+      "License": "MIT + file LICENSE",
+      "Imports": [
+        "V8 (>= 0.10)"
+      ],
+      "URL": "https://github.com/rich-iannone/DiagrammeRsvg",
+      "BugReports": "https://github.com/rich-iannone/DiagrammeRsvg/issues",
+      "RoxygenNote": "5.0.1",
+      "NeedsCompilation": "no",
+      "Author": "Richard Iannone [aut, cre]",
+      "Repository": "CRAN",
+      "Encoding": "UTF-8"
+    },
     "DiceDesign": {
       "Package": "DiceDesign",
       "Version": "1.10",
@@ -624,6 +698,42 @@
       "Maintainer": "Joshua Ulrich <josh.m.ulrich@gmail.com>",
       "Repository": "CRAN",
       "Encoding": "UTF-8"
+    },
+    "V8": {
+      "Package": "V8",
+      "Version": "8.0.0",
+      "Source": "Repository",
+      "Type": "Package",
+      "Title": "Embedded JavaScript and WebAssembly Engine for R",
+      "Authors@R": "c( person(\"Jeroen\", \"Ooms\", role = c(\"aut\", \"cre\"), email = \"jeroenooms@gmail.com\", comment = c(ORCID = \"0000-0002-4035-0289\")), person(\"George\", \"Stagg\", role = \"ctb\", comment = c(ORCID = \"0009-0006-3173-9846\")), person(\"Jan Marvin\", \"Garbuszus\", role = \"ctb\"))",
+      "Description": "An R interface to V8 <https://v8.dev>: Google's open source JavaScript and WebAssembly engine. This package can be compiled either with V8 version 6  and up or NodeJS when built as a shared library.",
+      "License": "MIT + file LICENSE",
+      "URL": "https://jeroen.r-universe.dev/V8",
+      "BugReports": "https://github.com/jeroen/v8/issues",
+      "SystemRequirements": "On Linux you can build against libv8-dev (Debian) or v8-devel (Fedora). We also provide static libv8 binaries for most platforms, see the README for details.",
+      "NeedsCompilation": "yes",
+      "VignetteBuilder": "knitr",
+      "Imports": [
+        "Rcpp (>= 0.12.12)",
+        "jsonlite (>= 1.0)",
+        "curl (>= 1.0)",
+        "utils"
+      ],
+      "LinkingTo": [
+        "Rcpp"
+      ],
+      "Suggests": [
+        "testthat",
+        "knitr",
+        "rmarkdown"
+      ],
+      "RoxygenNote": "7.3.1",
+      "Language": "en-US",
+      "Encoding": "UTF-8",
+      "Biarch": "true",
+      "Author": "Jeroen Ooms [aut, cre] (ORCID: <https://orcid.org/0000-0002-4035-0289>), George Stagg [ctb] (ORCID: <https://orcid.org/0009-0006-3173-9846>), Jan Marvin Garbuszus [ctb]",
+      "Maintainer": "Jeroen Ooms <jeroenooms@gmail.com>",
+      "Repository": "CRAN"
     },
     "anytime": {
       "Package": "anytime",
@@ -3295,6 +3405,39 @@
       "Maintainer": "Carson Sievert <carson@posit.co>",
       "Repository": "CRAN"
     },
+    "htmlwidgets": {
+      "Package": "htmlwidgets",
+      "Version": "1.6.4",
+      "Source": "Repository",
+      "Type": "Package",
+      "Title": "HTML Widgets for R",
+      "Authors@R": "c( person(\"Ramnath\", \"Vaidyanathan\", role = c(\"aut\", \"cph\")), person(\"Yihui\", \"Xie\", role = \"aut\"), person(\"JJ\", \"Allaire\", role = \"aut\"), person(\"Joe\", \"Cheng\", , \"joe@posit.co\", role = \"aut\"), person(\"Carson\", \"Sievert\", , \"carson@posit.co\", role = c(\"aut\", \"cre\"), comment = c(ORCID = \"0000-0002-4958-2844\")), person(\"Kenton\", \"Russell\", role = c(\"aut\", \"cph\")), person(\"Ellis\", \"Hughes\", role = \"ctb\"), person(\"Posit Software, PBC\", role = c(\"cph\", \"fnd\")) )",
+      "Description": "A framework for creating HTML widgets that render in various contexts including the R console, 'R Markdown' documents, and 'Shiny' web applications.",
+      "License": "MIT + file LICENSE",
+      "URL": "https://github.com/ramnathv/htmlwidgets",
+      "BugReports": "https://github.com/ramnathv/htmlwidgets/issues",
+      "Imports": [
+        "grDevices",
+        "htmltools (>= 0.5.7)",
+        "jsonlite (>= 0.9.16)",
+        "knitr (>= 1.8)",
+        "rmarkdown",
+        "yaml"
+      ],
+      "Suggests": [
+        "testthat"
+      ],
+      "Enhances": [
+        "shiny (>= 1.1)"
+      ],
+      "VignetteBuilder": "knitr",
+      "Encoding": "UTF-8",
+      "RoxygenNote": "7.2.3",
+      "NeedsCompilation": "no",
+      "Author": "Ramnath Vaidyanathan [aut, cph], Yihui Xie [aut], JJ Allaire [aut], Joe Cheng [aut], Carson Sievert [aut, cre] (<https://orcid.org/0000-0002-4958-2844>), Kenton Russell [aut, cph], Ellis Hughes [ctb], Posit Software, PBC [cph, fnd]",
+      "Maintainer": "Carson Sievert <carson@posit.co>",
+      "Repository": "CRAN"
+    },
     "httr": {
       "Package": "httr",
       "Version": "1.4.7",
@@ -3362,6 +3505,70 @@
       "Maintainer": "Rich FitzJohn <rich.fitzjohn@gmail.com>",
       "Repository": "CRAN",
       "Encoding": "UTF-8"
+    },
+    "igraph": {
+      "Package": "igraph",
+      "Version": "2.1.4",
+      "Source": "Repository",
+      "Title": "Network Analysis and Visualization",
+      "Authors@R": "c( person(\"Gábor\", \"Csárdi\", , \"csardi.gabor@gmail.com\", role = \"aut\", comment = c(ORCID = \"0000-0001-7098-9676\")), person(\"Tamás\", \"Nepusz\", , \"ntamas@gmail.com\", role = \"aut\", comment = c(ORCID = \"0000-0002-1451-338X\")), person(\"Vincent\", \"Traag\", role = \"aut\", comment = c(ORCID = \"0000-0003-3170-3879\")), person(\"Szabolcs\", \"Horvát\", , \"szhorvat@gmail.com\", role = \"aut\", comment = c(ORCID = \"0000-0002-3100-523X\")), person(\"Fabio\", \"Zanini\", , \"fabio.zanini@unsw.edu.au\", role = \"aut\", comment = c(ORCID = \"0000-0001-7097-8539\")), person(\"Daniel\", \"Noom\", role = \"aut\"), person(\"Kirill\", \"Müller\", , \"kirill@cynkra.com\", role = c(\"aut\", \"cre\"), comment = c(ORCID = \"0000-0002-1416-3412\")), person(\"Maëlle\", \"Salmon\", role = \"ctb\"), person(\"Michael\", \"Antonov\", role = \"ctb\"), person(\"Chan Zuckerberg Initiative\", role = \"fnd\") )",
+      "Description": "Routines for simple graphs and network analysis. It can handle large graphs very well and provides functions for generating random and regular graphs, graph visualization, centrality methods and much more.",
+      "License": "GPL (>= 2)",
+      "URL": "https://r.igraph.org/, https://igraph.org/, https://igraph.discourse.group/",
+      "BugReports": "https://github.com/igraph/rigraph/issues",
+      "Depends": [
+        "methods",
+        "R (>= 3.5.0)"
+      ],
+      "Imports": [
+        "cli",
+        "graphics",
+        "grDevices",
+        "lifecycle",
+        "magrittr",
+        "Matrix",
+        "pkgconfig (>= 2.0.0)",
+        "rlang",
+        "stats",
+        "utils",
+        "vctrs"
+      ],
+      "Suggests": [
+        "ape (>= 5.7-0.1)",
+        "callr",
+        "decor",
+        "digest",
+        "igraphdata",
+        "knitr",
+        "rgl (>= 1.3.14)",
+        "rmarkdown",
+        "scales",
+        "stats4",
+        "tcltk",
+        "testthat",
+        "vdiffr",
+        "withr"
+      ],
+      "Enhances": [
+        "graph"
+      ],
+      "LinkingTo": [
+        "cpp11 (>= 0.5.0)"
+      ],
+      "VignetteBuilder": "knitr",
+      "Config/Needs/build": "roxygen2, devtools, irlba, pkgconfig, igraph/igraph.r2cdocs, moodymudskipper/devtag",
+      "Config/Needs/coverage": "covr",
+      "Config/Needs/website": "readr",
+      "Config/testthat/edition": "3",
+      "Config/testthat/parallel": "true",
+      "Config/testthat/start-first": "vs-es, scan, vs-operators, weakref, watts.strogatz.game",
+      "Encoding": "UTF-8",
+      "RoxygenNote": "7.3.2.9000",
+      "SystemRequirements": "libxml2 (optional), glpk (>= 4.57, optional)",
+      "NeedsCompilation": "yes",
+      "Author": "Gábor Csárdi [aut] (<https://orcid.org/0000-0001-7098-9676>), Tamás Nepusz [aut] (<https://orcid.org/0000-0002-1451-338X>), Vincent Traag [aut] (<https://orcid.org/0000-0003-3170-3879>), Szabolcs Horvát [aut] (<https://orcid.org/0000-0002-3100-523X>), Fabio Zanini [aut] (<https://orcid.org/0000-0001-7097-8539>), Daniel Noom [aut], Kirill Müller [aut, cre] (<https://orcid.org/0000-0002-1416-3412>), Maëlle Salmon [ctb], Michael Antonov [ctb], Chan Zuckerberg Initiative [fnd]",
+      "Maintainer": "Kirill Müller <kirill@cynkra.com>",
+      "Repository": "CRAN"
     },
     "infer": {
       "Package": "infer",
@@ -5563,6 +5770,39 @@
       "Author": "Kevin Ushey [aut, cre], JJ Allaire [aut], Hadley Wickham [aut], Gary Ritchie [aut], RStudio [cph]",
       "Repository": "CRAN"
     },
+    "rsvg": {
+      "Package": "rsvg",
+      "Version": "2.7.0",
+      "Source": "Repository",
+      "Type": "Package",
+      "Title": "Render SVG Images into PDF, PNG, (Encapsulated) PostScript, or Bitmap Arrays",
+      "Authors@R": "c( person(\"Jeroen\", \"Ooms\", , \"jeroenooms@gmail.com\", role = c(\"aut\", \"cre\"), comment = c(ORCID = \"0000-0002-4035-0289\")), person(\"Salim\", \"Brüggemann\", , \"salim-b@pm.me\", role = c(\"ctb\"), comment = c(ORCID = \"0000-0002-5329-5987\")))",
+      "Description": "Renders vector-based svg images into high-quality custom-size bitmap arrays using 'librsvg2'. The resulting bitmap can be written to e.g. png, jpeg or webp format. In addition, the package can convert images directly to various formats such as pdf or postscript.",
+      "License": "MIT + file LICENSE",
+      "URL": "https://docs.ropensci.org/rsvg/, https://github.com/ropensci/rsvg",
+      "BugReports": "https://github.com/ropensci/rsvg/issues",
+      "Suggests": [
+        "ggplot2",
+        "knitr",
+        "magick",
+        "rmarkdown",
+        "spelling",
+        "svglite",
+        "testthat (>= 3.0.0)",
+        "webp",
+        "png"
+      ],
+      "VignetteBuilder": "knitr",
+      "Encoding": "UTF-8",
+      "Language": "en-US",
+      "RoxygenNote": "7.1.2",
+      "SystemRequirements": "librsvg2 (at least version 2.52)",
+      "Config/testthat/edition": "3",
+      "NeedsCompilation": "yes",
+      "Author": "Jeroen Ooms [aut, cre] (ORCID: <https://orcid.org/0000-0002-4035-0289>), Salim Brüggemann [ctb] (ORCID: <https://orcid.org/0000-0002-5329-5987>)",
+      "Maintainer": "Jeroen Ooms <jeroenooms@gmail.com>",
+      "Repository": "CRAN"
+    },
     "rvest": {
       "Package": "rvest",
       "Version": "1.0.5",
@@ -6993,6 +7233,51 @@
       "RoxygenNote": "7.2.3",
       "NeedsCompilation": "no",
       "Author": "Simon Garnier [aut, cre], Noam Ross [ctb, cph], Bob Rudis [ctb, cph], Marco Sciaini [ctb, cph], Antônio Pedro Camargo [ctb, cph], Cédric Scherer [ctb, cph]",
+      "Repository": "CRAN"
+    },
+    "visNetwork": {
+      "Package": "visNetwork",
+      "Version": "2.1.4",
+      "Source": "Repository",
+      "Title": "Network Visualization using 'vis.js' Library",
+      "Authors@R": "c( person(family = \"Almende B.V. and Contributors\", role = c(\"aut\", \"cph\"), comment = \"vis.js library in htmlwidgets/lib, https://visjs.org/, https://github.com/visjs/vis-network\"), person(\"Benoit\", \"Thieurmel\", role = c(\"aut\", \"cre\"), comment = \"R interface\", email = \"bthieurmel@gmail.com\") )",
+      "Maintainer": "Benoit Thieurmel <bthieurmel@gmail.com>",
+      "Description": "Provides an R interface to the 'vis.js' JavaScript charting library. It allows an interactive visualization of networks.",
+      "BugReports": "https://github.com/datastorm-open/visNetwork/issues",
+      "URL": "https://datastorm-open.github.io/visNetwork/",
+      "Depends": [
+        "R (>= 3.0)"
+      ],
+      "Imports": [
+        "htmlwidgets",
+        "htmltools",
+        "jsonlite",
+        "magrittr",
+        "utils",
+        "methods",
+        "grDevices",
+        "stats"
+      ],
+      "License": "MIT + file LICENSE",
+      "Encoding": "UTF-8",
+      "Suggests": [
+        "knitr",
+        "rmarkdown",
+        "webshot",
+        "igraph",
+        "rpart",
+        "shiny",
+        "shinyWidgets",
+        "colourpicker",
+        "sparkline",
+        "ggraph",
+        "tidygraph",
+        "flashClust"
+      ],
+      "VignetteBuilder": "knitr, rmarkdown",
+      "RoxygenNote": "7.3.3",
+      "NeedsCompilation": "no",
+      "Author": "Almende B.V. and Contributors [aut, cph] (vis.js library in htmlwidgets/lib, https://visjs.org/, https://github.com/visjs/vis-network), Benoit Thieurmel [aut, cre] (R interface)",
       "Repository": "CRAN"
     },
     "vroom": {
