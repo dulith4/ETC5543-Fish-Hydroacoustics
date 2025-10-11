@@ -1,55 +1,61 @@
-/* ---------------- Monash revealjs: sensible overrides + utilities ---------------- */
+/* ====== Base (unchanged feel) ====== */
+:root{ --r-main-font-size:36px; --r-block-margin:12px; --r-heading2-size:1.55em; }
+.reveal p,.reveal li{ line-height:1.28 !important; }
+.reveal ul{ margin:.4em 0 .6em !important; }
+.reveal li{ margin-bottom:.25em !important; }
+.reveal h2{ font-size:var(--r-heading2-size) !important; margin-bottom:.45em !important; line-height:1.15 !important; }
+.reveal .columns{ gap:1.2rem; align-items:center; } .reveal .column{ padding:0 .5rem; }
+.reveal .quarto-figure{ margin:0 !important; }
+.reveal code,.reveal .code{ font-size:.9em !important; }
+.reveal .quarto-figure .caption{ font-size:.85em !important; }
 
-/* === Global base ===
-   Pick a base that reads well on simple slides; adjust busy slides per-slide */
-:root {
-  --r-main-font-size: 36px;     /* global body size (Monash default is ~40px) */
-  --r-block-margin: 12px;
-  --r-heading2-size: 1.55em;    /* default H2 size */
+/* Utilities for headings/body size */
+.reveal section.h2-smaller h2{ font-size:1.35em !important; }
+.reveal section.table-smaller{ font-size:.90em !important; }   /* slide-level */
+
+ /* ====== TABLE FITTING (high specificity) ====== */
+/* Add htmltable_class = "fit-table" in kable_styling() — already in your chunks */
+.reveal section table.fit-table{
+  font-size: .74em !important;            /* stronger downsize */
+  max-width: 92vw !important;             /* never overflow slide */
+  margin-left: auto !important;
+  margin-right: auto !important;
+  table-layout: auto;
+  border-collapse: collapse !important;
 }
 
-/* Body & lists a touch tighter (keeps things neat without looking cramped) */
-.reveal p,
-.reveal li {
-  line-height: 1.28 !important;
-}
-.reveal ul { margin: .4em 0 .6em !important; }
-.reveal li { margin-bottom: .25em !important; }
-
-/* Headings */
-.reveal h2 {
-  font-size: var(--r-heading2-size) !important;
-  margin-bottom: .45em !important;
-  line-height: 1.15 !important;
+/* tight cells */
+.reveal section table.fit-table th,
+.reveal section table.fit-table td{
+  padding: .14em .46em !important;
+  line-height: 1.12 !important;
+  vertical-align: middle !important;
+  white-space: nowrap;                     /* keep numbers on one line */
 }
 
-/* Columns: nicer spacing + vertical alignment */
-.reveal .columns { gap: 1.2rem; align-items: center; }
-.reveal .column  { padding: 0 .5rem; }
+/* first (label) column can wrap if needed */
+.reveal section table.fit-table th:first-child,
+.reveal section table.fit-table td:first-child{
+  white-space: normal !important;
+}
 
-/* Figures: remove extra bottom space (esp. with fig-cap: null) */
-.reveal .quarto-figure { margin: 0 !important; }
+/* smaller caption */
+.reveal section table.fit-table caption{
+  caption-side: top;
+  font-size: .85em !important;
+  margin-bottom: .25rem !important;
+  text-align: left;
+}
 
-/* Legend under plots can crowd footer: keep compact */
-.reveal .legend { margin-top: .25rem !important; }
-
-/* === Per-slide utilities ===
-   Apply to a slide by appending classes to the slide heading:
-   ## Title {.smaller .h2-smaller .compact}
-*/
-.reveal section.smaller   { font-size: 0.90em !important; }  /* a bit smaller */
-.reveal section.smallest  { font-size: 0.82em !important; }  /* much smaller */
-.reveal section.larger    { font-size: 1.08em !important; }  /* a bit larger */
-
-.reveal section.h2-smaller h2 { font-size: 1.35em !important; } /* smaller heading */
-.reveal section.h2-largest h2 { font-size: 1.75em !important; } /* splashy heading */
-
-.reveal section.compact li { margin-bottom: .15em !important; } /* tighter bullets */
-
-/* Optional: make code and small captions slightly smaller than body */
-.reveal code, .reveal .code { font-size: .9em !important; }
-.reveal .quarto-figure .caption { font-size: .85em !important; }
-
-/* Optional: left-align slide content globally (Monash centers by default on some blocks)
-   If you want strict left alignment for all slides, uncomment the next line. */
-/* .reveal .slides section { text-align: left !important; } */
+/* ====== Optional per-slide scale (nuclear option if still big) ====== */
+/* Add {.table-scale-85} to the slide heading to scale the table block only */
+.reveal section.table-scale-85 table.fit-table{
+  transform: scale(.85);
+  transform-origin: top center;
+  display: inline-block;                   /* keep table’s width from affecting layout */
+}
+.reveal section.table-scale-80 table.fit-table{
+  transform: scale(.80);
+  transform-origin: top center;
+  display: inline-block;
+}

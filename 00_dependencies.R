@@ -88,6 +88,9 @@ suppressPackageStartupMessages({
   library(patchwork)
   library(janitor)
   library(zip)
+  library(knitr)  
+  library(kableExtra)
+  library(htmltools)
   
 
   

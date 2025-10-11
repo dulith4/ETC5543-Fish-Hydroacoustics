@@ -8,9 +8,10 @@ format:
     slide-number: true
     footer: "ETC5543 — Fish Hydroacoustics"
     incremental: false
-    center: false          
-    margin: 0.06          
+    center: false
+    margin: 0.06
     css: custom.scss
+    smaller: true 
 execute:
   echo: false
   warning: false
@@ -89,7 +90,7 @@ svg_nohdr <- sub("(?s)^.*?<svg", "<svg", svg_txt, perl = TRUE)
 ```
 
 
----
+
 
 ## Why fish hydroacoustics? {.larger .h2-smaller}
 
@@ -105,7 +106,7 @@ svg_nohdr <- sub("(?s)^.*?<svg", "<svg", svg_txt, perl = TRUE)
 ![](media/sonar2.gif){width="100%" fig-align="center" alt="Animated sonar pulses bouncing off a fish"}
 :::
 ::::
----
+
 
 ## About the dataset {.larger}
 - ~**30k** rows × **302** variables; two species (**LT**, **SMB**)  
@@ -115,7 +116,7 @@ svg_nohdr <- sub("(?s)^.*?<svg", "<svg", svg_txt, perl = TRUE)
 - Focus today: **frequency data only** for classification
 
 
----
+
 
 ## Acoustic fingerprints: the Frequency Response Curve (FRC) {.smaller .h2-smaller}
 
@@ -150,7 +151,7 @@ ggplot(freq_long, aes(frequency, TS, colour = species, fill = species)) +
 ::::
 
 
----
+
 
 ## Which frequencies separate species? {.smaller .h2-smaller}
 
@@ -164,7 +165,7 @@ ggplot(freq_long, aes(frequency, TS, colour = species, fill = species)) +
 
 
 # Ensure the sign is LT − SMB
-fish_raw <- fish_raw %>%
+fish_raw <- fish_raw |>
   mutate(species = factor(species, levels = c("LT","SMB")))
 
 # Cohen's d (optionally bias-correct to Hedges' g)
@@ -187,7 +188,7 @@ effect_size <- function(x, g, hedges = FALSE) {
 eff <- tibble(
   freq_khz = parse_number(freq_cols),
   d        = map_dbl(freq_cols, ~ effect_size(fish_raw[[.x]], fish_raw$species))
-) %>% arrange(freq_khz)
+) |> arrange(freq_khz)
 
 # Plot
 ggplot(eff, aes(freq_khz, d)) +
@@ -202,7 +203,7 @@ ggplot(eff, aes(freq_khz, d)) +
 
 
 
----
+
 ## From curves to models {.larger .h2-smaller}
 
 - Each fish’s **FRC (45–170 kHz)** summarised  
@@ -220,6 +221,152 @@ cat('<div style="text-align:center; margin: 0.75rem 0 1.25rem;">')
 cat('<div style="display:inline-block; width:92vw; max-width:1200px;">')
 cat(svg_nohdr)
 cat('</div></div>')
+
+```
+
+
+
+## Baselines: RNN & per-ping AutoML {.larger}
+
+**Pre-processing (used by the RNN):**
+
+- Size-standardise each fish to **450 mm** with `offset_dB = 10*log10(450/length)`
+
+- Convert **F45–F170** from dB → **linear backscatter**: `exp((dB + offset_dB)/10)`
+
+- **Grouped splits** by *fishNum* (train / valid / test)
+
+```{r baselines-table}
+library(kableExtra)
+options(knitr.kable.NA = "—")
+
+baselines <- tribble(
+  ~Model, ~`Acc @ 0.50`, ~`Policy thr`, ~`Acc @ Policy`,
+  "RNN (reproduction on 5-ping blocks)", 0.593, NA, NA,
+  "AutoML (per-ping, original data)",     0.668, 0.7000, 0.663
+)
+
+baselines |>
+  mutate(
+    `Acc @ 0.50`   = sprintf("%.3f", `Acc @ 0.50`),
+    `Policy thr`   = ifelse(is.na(`Policy thr`), "—", sprintf("%.4f", `Policy thr`)),
+    `Acc @ Policy` = ifelse(is.na(`Acc @ Policy`), "—", sprintf("%.3f", `Acc @ Policy`))
+  ) |>
+  kable(format = "html", align = c("l","r","r","r"),
+        caption = "Baselines on TEST set") |>
+  kable_styling(bootstrap_options = c("striped","hover","condensed"),
+                full_width = FALSE,
+                htmltable_class = "fit-table")
+
+```
+
+
+
+
+
+
+## TS-features: AutoML (per-fish) {.larger}
+
+**Four variants**
+
+- **QUINTILES_ALLFREQ** (5 rows/fish: F* + tsfeatures)  
+- **QUINTILES_FEATS** (5 rows/fish: tsfeatures only)  
+- **MEDIAN_ALLFREQ** (1 row/fish: median F* + tsfeatures)  
+- **MEDIAN_FEATS** (1 row/fish: tsfeatures only)
+
+```{r tsfeatures-automl}
+library(kableExtra)
+
+ts_automl <- tribble(
+  ~Variant, ~`Acc @ 0.50`, ~`Policy thr`, ~`Acc @ Policy`,
+  "QUINTILES_ALLFREQ", 0.883, 0.4754, 0.867,
+  "QUINTILES_FEATS",   0.633, 0.4000, 0.750,
+  "MEDIAN_ALLFREQ",    0.917, 0.5796, 0.833,
+  "MEDIAN_FEATS",      0.667, 0.4000, 0.750
+)
+
+ts_automl |>
+  mutate(
+    `Acc @ 0.50`   = sprintf("%.3f", `Acc @ 0.50`),
+    `Policy thr`   = sprintf("%.4f", `Policy thr`),
+    `Acc @ Policy` = sprintf("%.3f", `Acc @ Policy`)
+  ) |>
+  kable(format = "html", align = c("l","r","r","r"),
+        caption = "TS-features AutoML — TEST results (policy = VALID max-ACC, clamped [0.40, 0.70])") |>
+  kable_styling(bootstrap_options = c("striped","hover","condensed"),
+                full_width = FALSE,
+                htmltable_class = "fit-table")
+
+```
+
+
+
+
+
+
+
+## Threshold tuning: OOF vs baseline {.larger}
+
+- 5-fold **grouped CV by fishNum**, pick threshold that maximises **OOF accuracy**, then **clamp** to **[0.40, 0.70]**  
+- Compare TEST accuracy at **0.50** vs **OOF threshold**
+
+```{r oof-table}
+library(kableExtra)
+
+oof <- tribble(
+  ~Variant, ~`OOF thr (clip)`, ~`TEST Acc @ 0.50`, ~`TEST Acc @ OOF`,
+  "QUINTILES_ALLFREQ", 0.4265, 0.867, 0.783,
+  "QUINTILES_FEATS",   0.4000, 0.633, 0.633,
+  "MEDIAN_ALLFREQ",    0.4000, 0.917, 1.000,
+  "MEDIAN_FEATS",      0.7000, 0.750, 0.667
+)
+
+oof |>
+  mutate(
+    `OOF thr (clip)`  = sprintf("%.4f", `OOF thr (clip)`),
+    `TEST Acc @ 0.50` = sprintf("%.3f", `TEST Acc @ 0.50`),
+    `TEST Acc @ OOF`  = sprintf("%.3f", `TEST Acc @ OOF`)
+  ) |>
+  kable(format = "html", align = c("l","r","r","r"),
+        caption = "OOF threshold tuning (5-fold grouped CV); clamp = [0.40, 0.70]") |>
+  kable_styling(bootstrap_options = c("striped","hover","condensed"),
+                full_width = FALSE,
+                htmltable_class = "fit-table")
+
+```
+
+
+
+
+
+## Deep Learning grid (base-model tuning) {.larger}
+
+- Tuned DL hyper-params (layers, dropout, epochs, LR/anneal, L1/L2).
+
+- **Policy threshold fixed to 0.4000** (VALID max-ACC within clamp).
+
+```{r dl-grid-table}
+library(kableExtra)
+
+dlgrid <- tribble(
+  ~Variant, ~`TEST Acc @ 0.50`, ~`Policy thr`, ~`TEST Acc @ Policy`,
+  "QUINTILES_ALLFREQ", 0.729, 0.4000, 0.743,
+  "QUINTILES_FEATS",   0.786, 0.4000, 0.757,
+  "MEDIAN_ALLFREQ",    0.857, 0.4000, 0.857,
+  "MEDIAN_FEATS",      0.929, 0.4000, 0.929
+)
+
+dlgrid |>
+  mutate(
+    `TEST Acc @ 0.50`   = sprintf("%.3f", `TEST Acc @ 0.50`),
+    `Policy thr`        = sprintf("%.4f", `Policy thr`),
+    `TEST Acc @ Policy` = sprintf("%.3f", `TEST Acc @ Policy`)
+  ) |>
+  kable(format = "html", align = c("l","r","r","r"),
+        caption = "Deep Learning grid — TEST results (policy fixed to 0.4000)") |>
+  kable_styling(bootstrap_options = c("striped","hover","condensed"),
+                full_width = FALSE,
+                htmltable_class = "fit-table")
 
 ```
 
