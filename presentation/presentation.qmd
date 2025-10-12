@@ -208,8 +208,8 @@ ggplot(eff, aes(freq_khz, d)) +
 
 - Each fish’s **FRC (45–170 kHz)** summarised  
   - **Quantiles** (q20–q100) & **Median**
-- **feasts** features capture curve *shape* (ACF/PACF/STL)
-- **H2O AutoML** across GBM / DL / XGBoost
+- **feasts** features capture curve *shape* (ACF/PACF/STL) to encode smoothness, periodicity, and slope changes.
+- **H2O AutoML** across Stack ensemble/GBM / DL / XGBoost
 - Grouped CV by **fish**, test on **held-out** set
 
 ```{r}
@@ -246,6 +246,15 @@ baselines <- tribble(
   "AutoML (per-ping, original data)",     0.668, 0.7000, 0.663
 )
 
+# choose which metric to decide "best row" by:
+# if Acc @ Policy exists, use that; otherwise fall back to Acc @ 0.50
+score_for_rank <- if (all(is.na(baselines$`Acc @ Policy`))) {
+  baselines$`Acc @ 0.50`
+} else {
+  dplyr::coalesce(baselines$`Acc @ Policy`, baselines$`Acc @ 0.50`)
+}
+highlight_idx <- which.max(score_for_rank)
+
 baselines |>
   mutate(
     `Acc @ 0.50`   = sprintf("%.3f", `Acc @ 0.50`),
@@ -256,7 +265,8 @@ baselines |>
         caption = "Baselines on TEST set") |>
   kable_styling(bootstrap_options = c("striped","hover","condensed"),
                 full_width = FALSE,
-                htmltable_class = "fit-table")
+                htmltable_class = "fit-table") |>
+  row_spec(highlight_idx, bold = TRUE, color = "#0B63CE")   
 
 ```
 
@@ -285,6 +295,10 @@ ts_automl <- tribble(
   "MEDIAN_FEATS",      0.667, 0.4000, 0.750
 )
 
+# Pick the row to highlight: prefer Acc @ Policy, else fall back to Acc @ 0.50
+score_for_rank <- dplyr::coalesce(ts_automl$`Acc @ Policy`, ts_automl$`Acc @ 0.50`)
+highlight_idx <- which.max(score_for_rank)
+
 ts_automl |>
   mutate(
     `Acc @ 0.50`   = sprintf("%.3f", `Acc @ 0.50`),
@@ -295,7 +309,8 @@ ts_automl |>
         caption = "TS-features AutoML — TEST results (policy = VALID max-ACC, clamped [0.40, 0.70])") |>
   kable_styling(bootstrap_options = c("striped","hover","condensed"),
                 full_width = FALSE,
-                htmltable_class = "fit-table")
+                htmltable_class = "fit-table") |>
+  row_spec(highlight_idx, bold = TRUE, color = "#0B63CE")   # <- bold + coloured text
 
 ```
 
@@ -321,6 +336,10 @@ oof <- tribble(
   "MEDIAN_FEATS",      0.7000, 0.750, 0.667
 )
 
+# Select row to highlight: prefer TEST Acc @ OOF, else TEST Acc @ 0.50
+score_for_rank <- dplyr::coalesce(oof$`TEST Acc @ OOF`, oof$`TEST Acc @ 0.50`)
+highlight_idx  <- which.max(score_for_rank)
+
 oof |>
   mutate(
     `OOF thr (clip)`  = sprintf("%.4f", `OOF thr (clip)`),
@@ -331,7 +350,8 @@ oof |>
         caption = "OOF threshold tuning (5-fold grouped CV); clamp = [0.40, 0.70]") |>
   kable_styling(bootstrap_options = c("striped","hover","condensed"),
                 full_width = FALSE,
-                htmltable_class = "fit-table")
+                htmltable_class = "fit-table") |>
+  row_spec(highlight_idx, bold = TRUE, color = "#0B63CE")   # highlight best row
 
 ```
 
@@ -346,6 +366,7 @@ oof |>
 - **Policy threshold fixed to 0.4000** (VALID max-ACC within clamp).
 
 ```{r dl-grid-table}
+library(dplyr)
 library(kableExtra)
 
 dlgrid <- tribble(
@@ -355,6 +376,9 @@ dlgrid <- tribble(
   "MEDIAN_ALLFREQ",    0.857, 0.4000, 0.857,
   "MEDIAN_FEATS",      0.929, 0.4000, 0.929
 )
+
+# choose row to highlight (by TEST Acc @ Policy)
+highlight_idx <- which.max(dlgrid$`TEST Acc @ Policy`)
 
 dlgrid |>
   mutate(
@@ -366,7 +390,8 @@ dlgrid |>
         caption = "Deep Learning grid — TEST results (policy fixed to 0.4000)") |>
   kable_styling(bootstrap_options = c("striped","hover","condensed"),
                 full_width = FALSE,
-                htmltable_class = "fit-table")
+                htmltable_class = "fit-table") |>
+  row_spec(highlight_idx, bold = TRUE, color = "#0B63CE")
 
 ```
 
