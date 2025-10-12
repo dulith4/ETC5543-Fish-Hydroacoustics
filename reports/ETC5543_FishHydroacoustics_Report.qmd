@@ -1,0 +1,45 @@
+---
+title: "Classifying Lake Trout vs Smallmouth Bass from Wideband Hydroacoustics (45–170 kHz)"
+subtitle: "ETC5543 — Business Analytics Creative Activity (Single-student project)"
+author:
+  - name: Dulitha Perera
+    affiliation: Monash University — Econometrics & Business Statistics
+supervisor: "Natalia Da Silva"
+repository: "https://github.com/dulith4/ETC5543-Fish-Hydroacoustics"
+bibliography: references.bib
+format:
+  report-pdf:
+    toc: true
+    number-sections: true
+    df-print: default
+execute:
+  echo: false
+  warning: false
+  message: false
+fig-cap-location: top
+lang: en
+keywords: [hydroacoustics, fish acoustics, frequency response curve, H2O, machine learning]
+---
+
+
+# Abstract
+
+# 1 Introduction & Motivation
+
+# 2 Data & Preparation
+
+# 3 Initial Data Analysis (IDA/EDA)
+
+# 4 Feature Engineering
+
+# 5 Classification Methods
+
+# 6 Results
+
+# 7 Temporal & Spatial Insights
+
+# 8 Discussion
+
+# 9 Conclusion & Future Work
+
+# References
