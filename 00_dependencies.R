@@ -98,6 +98,7 @@ suppressPackageStartupMessages({
   library(GGally)
   library(ggstats)
   library(DiagrammeR)
+  library(plotly)
   
 })
 
