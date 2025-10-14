@@ -115,6 +115,73 @@ svg_nohdr <- sub("(?s)^.*?<svg", "<svg", svg_txt, perl = TRUE)
 - Context: morphometrics, depth, speed, orientation  
 - Focus today: **frequency data only** for classification
 
+```{r}
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(plotly)
+
+# Long form: one row per (species, frequency, TS)
+freq_long <- fish_raw |>
+  dplyr::select(species, dplyr::all_of(freq_cols)) |>
+  tidyr::pivot_longer(-species, names_to = "frequency", values_to = "TS") |>
+  dplyr::mutate(frequency = readr::parse_number(frequency))
+
+# Summarise per-species per-frequency quantiles
+qdf <- freq_long |>
+  group_by(species, frequency) |>
+  summarise(
+    q25  = quantile(TS, 0.25, na.rm = TRUE),
+    q50  = quantile(TS, 0.50, na.rm = TRUE),
+    q75  = quantile(TS, 0.75, na.rm = TRUE),
+    q100 = max(TS, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+# For drawing the dashed quantile lines
+q_lines <- qdf |>
+  pivot_longer(q25:q100, names_to = "quant", values_to = "TSq")
+
+# Aesthetic choices: species colors
+cols_fill <- c("LT" = "#F7C6C6", "SMB" = "#BFECEF")   # light fills
+cols_line <- c("LT" = "#E05A5A", "SMB" = "#1FBFCF")   # dashed lines
+
+gg <- ggplot() +
+  # Q25–Q75 shaded band
+  geom_ribbon(
+    data = qdf,
+    aes(x = frequency, ymin = q25, ymax = q75, fill = species),
+    alpha = 0.35, colour = NA
+  ) +
+  # Dashed lines at Q25, Q50, Q75, Q100
+  geom_line(
+    data = q_lines,
+    aes(x = frequency, y = TSq, colour = species, linetype = quant),
+    linewidth = 0.9
+  ) +
+  facet_wrap(~ species, nrow = 1, scales = "fixed") +
+  scale_fill_manual(values = cols_fill, guide = "none") +
+  scale_colour_manual(values = cols_line, guide = "none") +
+  scale_linetype_manual(
+    values = c(q25 = "dashed", q50 = "dashed", q75 = "dashed", q100 = "dashed"),
+    labels = c(q25 = "Q25", q50 = "Q50 (median)", q75 = "Q75", q100 = "Q100 (max)")
+  ) +
+  labs(x = "Frequency (kHz)", y = "Target Strength (dB)") +
+  theme_minimal(base_size = 13) +
+  theme(
+    panel.grid.minor = element_blank(),
+    strip.text = element_text(face = "bold"),
+    legend.position = "bottom"
+  )
+
+# Interactive plotly (hover shows frequency, quantile and TS value)
+ggplotly(
+  gg,
+  tooltip = c("x", "y", "quant")
+) |> layout(hovermode = "x unified")
+
+
+```
 
 
 
@@ -316,83 +383,29 @@ ts_automl |>
 
 
 
+## Future Work: Improving Model Performance
+
+- **OOF (Out-of-Fold) Threshold Tuning** – to optimise classification thresholds 
+
+- **Model Hyperparameter Tuning** – for the Deep Learning grid (layers, dropout, epochs, learning rate, etc.).  
+
+- **Use discriminative frequencies**  
+  Select F* bands that best separate LT vs SMB.  
+  → Train compact models on these **top F* only** to reduce noise & overfitting.
+- **Add richer time-series features from `fabletools/feasts`** 
 
 
 
+##  {.center}
 
-## Threshold tuning: OOF vs baseline {.larger}
-
-- 5-fold **grouped CV by fishNum**, pick threshold that maximises **OOF accuracy**, then **clamp** to **[0.40, 0.70]**  
-- Compare TEST accuracy at **0.50** vs **OOF threshold**
-
-```{r oof-table}
-library(kableExtra)
-
-oof <- tribble(
-  ~Variant, ~`OOF thr (clip)`, ~`TEST Acc @ 0.50`, ~`TEST Acc @ OOF`,
-  "QUINTILES_ALLFREQ", 0.4265, 0.867, 0.783,
-  "QUINTILES_FEATS",   0.4000, 0.633, 0.633,
-  "MEDIAN_ALLFREQ",    0.4000, 0.917, 1.000,
-  "MEDIAN_FEATS",      0.7000, 0.750, 0.667
-)
-
-# Select row to highlight: prefer TEST Acc @ OOF, else TEST Acc @ 0.50
-score_for_rank <- dplyr::coalesce(oof$`TEST Acc @ OOF`, oof$`TEST Acc @ 0.50`)
-highlight_idx  <- which.max(score_for_rank)
-
-oof |>
-  mutate(
-    `OOF thr (clip)`  = sprintf("%.4f", `OOF thr (clip)`),
-    `TEST Acc @ 0.50` = sprintf("%.3f", `TEST Acc @ 0.50`),
-    `TEST Acc @ OOF`  = sprintf("%.3f", `TEST Acc @ OOF`)
-  ) |>
-  kable(format = "html", align = c("l","r","r","r"),
-        caption = "OOF threshold tuning (5-fold grouped CV); clamp = [0.40, 0.70]") |>
-  kable_styling(bootstrap_options = c("striped","hover","condensed"),
-                full_width = FALSE,
-                htmltable_class = "fit-table") |>
-  row_spec(highlight_idx, bold = TRUE, color = "#0B63CE")   # highlight best row
-
-```
+::: {.splash-quote}
+> <span class="q">Every fish leaves a sonic fingerprint. Our job is to read it.</span>  
+> <span class="attr">Fish Hydroacoustics — ETC5543</span>
+:::
 
 
 
 
 
-## Deep Learning grid (base-model tuning) {.larger}
-
-- Tuned DL hyper-params (layers, dropout, epochs, LR/anneal, L1/L2).
-
-- **Policy threshold fixed to 0.4000** (VALID max-ACC within clamp).
-
-```{r dl-grid-table}
-library(dplyr)
-library(kableExtra)
-
-dlgrid <- tribble(
-  ~Variant, ~`TEST Acc @ 0.50`, ~`Policy thr`, ~`TEST Acc @ Policy`,
-  "QUINTILES_ALLFREQ", 0.729, 0.4000, 0.743,
-  "QUINTILES_FEATS",   0.786, 0.4000, 0.757,
-  "MEDIAN_ALLFREQ",    0.857, 0.4000, 0.857,
-  "MEDIAN_FEATS",      0.929, 0.4000, 0.929
-)
-
-# choose row to highlight (by TEST Acc @ Policy)
-highlight_idx <- which.max(dlgrid$`TEST Acc @ Policy`)
-
-dlgrid |>
-  mutate(
-    `TEST Acc @ 0.50`   = sprintf("%.3f", `TEST Acc @ 0.50`),
-    `Policy thr`        = sprintf("%.4f", `Policy thr`),
-    `TEST Acc @ Policy` = sprintf("%.3f", `TEST Acc @ Policy`)
-  ) |>
-  kable(format = "html", align = c("l","r","r","r"),
-        caption = "Deep Learning grid — TEST results (policy fixed to 0.4000)") |>
-  kable_styling(bootstrap_options = c("striped","hover","condensed"),
-                full_width = FALSE,
-                htmltable_class = "fit-table") |>
-  row_spec(highlight_idx, bold = TRUE, color = "#0B63CE")
-
-```
 
 

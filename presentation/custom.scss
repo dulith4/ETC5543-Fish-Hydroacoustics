@@ -59,3 +59,53 @@
   transform-origin: top center;
   display: inline-block;
 }
+
+/* Quote splash panel — bigger, brighter, crisper */
+.splash-quote{
+  /* layout */
+  display:flex; align-items:center; justify-content:center; text-align:center;
+  height: 68vh; max-width: 88vw; margin: 6vh auto 0; padding: 2.6rem 3.2rem;
+  border-radius: 30px;
+
+  /* high-contrast deep-water look */
+  color:#eaf6ff;                     /* bright text */
+  background:
+    radial-gradient(1100px 540px at 30% 20%, rgba(255,255,255,.08), transparent 60%),
+    radial-gradient(900px 700px at 70% 70%, rgba(255,255,255,.06), transparent 60%),
+    linear-gradient(180deg, #0f2d43 0%, #092536 100%);
+  box-shadow: 0 22px 46px rgba(0,0,0,.28);
+}
+
+/* remove the default blockquote bar + spacing */
+.splash-quote > blockquote{ margin:0; padding:0; border:0; }
+
+/* BIG headline line */
+.splash-quote .q{
+  display:block;
+  font-weight: 900;
+  line-height: 1.18;
+  letter-spacing: .2px;
+  /* responsive size: 40–72px depending on screen */
+  font-size: clamp(40px, 5.2vw, 72px);
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.28);
+}
+
+/* attribution line */
+.splash-quote .attr{
+  display:block;
+  margin-top: 1.0rem;
+  font-style: italic;
+  opacity: .95;
+  /* responsive size: 18–28px */
+  font-size: clamp(18px, 2.2vw, 28px);
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.28);
+}
+
+/* Make the quote text definitely white */
+.splash-quote,
+.splash-quote blockquote,
+.splash-quote .q,
+.splash-quote .attr {
+  color: #fff !important;
+}
+

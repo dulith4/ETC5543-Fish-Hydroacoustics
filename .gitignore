@@ -132,3 +132,5 @@ data/
 
 # Templates Folder
 templates/
+
+**/*.quarto_ipynb
