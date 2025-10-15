@@ -80,6 +80,7 @@ suppressPackageStartupMessages({
   # Deep learning
   library(keras)
   library(tensorflow)
+  library(pROC)
   
   # Utilities
   library(here)
