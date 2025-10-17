@@ -65,7 +65,7 @@ digraph pipeline {
   node [shape=box, style=\"rounded,filled\", color=\"#1b4965\", fillcolor=\"#cae9ff\",
         fontname=Helvetica, fontsize=14, margin=\"0.18,0.10\" ]
   raw   [label=<<B>1) Raw Sonar</B><BR/><FONT POINT-SIZE='12'>F45–F170 per ping</FONT>>]
-  agg   [label=<<B>2) Per-fish Aggregation</B><BR/><FONT POINT-SIZE='12'>Quantiles (q20–q100) / Median</FONT>>]
+  agg   [label=<<B>2) Per-fish Aggregation</B><BR/><FONT POINT-SIZE='12'>Quantiles (q20–q100)</FONT>>]
   feats [label=<<B>3) feasts Features</B><BR/><FONT POINT-SIZE='12'>ACF / PACF / STL (shape)</FONT>>]
   model [label=<<B>4) H2O AutoML</B><BR/><FONT POINT-SIZE='12'>GBM / Deep Learning / XGBoost</FONT>>]
   edge  [color=\"#003049\", penwidth=1.6, arrowhead=normal, arrowsize=0.9]
@@ -90,22 +90,26 @@ svg_nohdr <- sub("(?s)^.*?<svg", "<svg", svg_txt, perl = TRUE)
 ```
 
 
-
-
-## Why fish hydroacoustics? {.larger .h2-smaller}
+## Why fish hydroacoustics? {.larger}
 
 :::: {.columns}
-::: {.column width="54%"}
+::: {.column width="58%"}
+<div style="font-size: 1.25em; line-height: 1.35;">
 - **Non-invasive** monitoring  
 - **Management:** distinguish **LT** vs **SMB**  
 - **Question:** can the **FRC (45–170 kHz)** classify species?  
 - **Outcome:** scalable pipeline for species ID & trends
+</div>
 :::
 
-::: {.column width="46%"}
-![](media/sonar2.gif){width="100%" fig-align="center" alt="Animated sonar pulses bouncing off a fish"}
+::: {.column width="42%"}
+![](media/sonar2.gif){width="100%" alt="Sonar echo demo"}
 :::
 ::::
+
+
+
+
 
 
 ## About the dataset {.larger}
@@ -116,6 +120,10 @@ svg_nohdr <- sub("(?s)^.*?<svg", "<svg", svg_txt, perl = TRUE)
 - Focus today: **frequency data only** for classification
 
 ```{r}
+#| fig-width: 9
+#| fig-height: 4.8 
+#| fig-align: left
+#| 
 library(dplyr)
 library(tidyr)
 library(ggplot2)
@@ -175,11 +183,25 @@ gg <- ggplot() +
   )
 
 # Interactive plotly (hover shows frequency, quantile and TS value)
+# Keep your gg object as-is above…
+
 ggplotly(
   gg,
-  tooltip = c("x", "y", "quant")
-) |> layout(hovermode = "x unified")
-
+  tooltip = c("x","y","quant")
+) |>
+  layout(
+    # make room for facet strip titles (top) and axis titles (left/bottom)
+    margin = list(l = 90, r = 180, t = 60, b = 110),
+    hovermode = "x unified",
+    # axis titles + auto margins so labels never get clipped
+    xaxis  = list(title = "Frequency (kHz)",       automargin = TRUE),
+    xaxis2 = list(title = "Frequency (kHz)",       automargin = TRUE),
+    yaxis  = list(title = "Target Strength (dB)",  automargin = TRUE),
+    yaxis2 = list(title = "Target Strength (dB)",  automargin = TRUE),
+    # keep legend to the right so it doesn't fight the footer
+    legend = list(x = 1.02, y = 0.5, xanchor = "left", yanchor = "middle")
+  ) |>
+  config(responsive = TRUE, displayModeBar = FALSE)
 
 ```
 
@@ -274,7 +296,7 @@ ggplot(eff, aes(freq_khz, d)) +
 ## From curves to models {.larger .h2-smaller}
 
 - Each fish’s **FRC (45–170 kHz)** summarised  
-  - **Quantiles** (q20–q100) & **Median**
+  - **Quantiles** (q20–q100) 
 - **feasts** features capture curve *shape* (ACF/PACF/STL) to encode smoothness, periodicity, and slope changes.
 - **H2O AutoML** across Stack ensemble/GBM / DL / XGBoost
 - Grouped CV by **fish**, test on **held-out** set
@@ -308,32 +330,29 @@ library(kableExtra)
 options(knitr.kable.NA = "—")
 
 baselines <- tribble(
-  ~Model, ~`Acc @ 0.50`, ~`Policy thr`, ~`Acc @ Policy`,
-  "RNN (reproduction on 5-ping blocks)", 0.593, NA, NA,
-  "AutoML (per-ping, original data)",     0.668, 0.7000, 0.663
+~Model, ~`Acc @ 0.50`, ~`Policy thr`, ~`Acc @ Policy`,
+"RNN (reproduction on 5-ping blocks)", 0.593, NA,     NA,
+"AutoML (per-ping, original data)",     0.668, 0.7000, 0.663
 )
 
-# choose which metric to decide "best row" by:
-# if Acc @ Policy exists, use that; otherwise fall back to Acc @ 0.50
-score_for_rank <- if (all(is.na(baselines$`Acc @ Policy`))) {
-  baselines$`Acc @ 0.50`
-} else {
-  dplyr::coalesce(baselines$`Acc @ Policy`, baselines$`Acc @ 0.50`)
-}
-highlight_idx <- which.max(score_for_rank)
+# Rank rows: prefer Acc @ Policy (if present) else Acc @ 0.50
+
+score_for_rank <- dplyr::coalesce(baselines$`Acc @ Policy`, baselines$`Acc @ 0.50`)
+highlight_idx  <- which.max(score_for_rank)
 
 baselines |>
-  mutate(
-    `Acc @ 0.50`   = sprintf("%.3f", `Acc @ 0.50`),
-    `Policy thr`   = ifelse(is.na(`Policy thr`), "—", sprintf("%.4f", `Policy thr`)),
-    `Acc @ Policy` = ifelse(is.na(`Acc @ Policy`), "—", sprintf("%.3f", `Acc @ Policy`))
-  ) |>
-  kable(format = "html", align = c("l","r","r","r"),
-        caption = "Baselines on TEST set") |>
-  kable_styling(bootstrap_options = c("striped","hover","condensed"),
-                full_width = FALSE,
-                htmltable_class = "fit-table") |>
-  row_spec(highlight_idx, bold = TRUE, color = "#0B63CE")   
+mutate(
+`Acc @ 0.50`   = sprintf("%.3f", `Acc @ 0.50`),
+`Acc @ Policy` = ifelse(is.na(`Acc @ Policy`), "—", sprintf("%.3f", `Acc @ Policy`))
+) |>
+select(Model, `Acc @ 0.50`, `Acc @ Policy`) |>
+kable(format = "html",
+align  = c("l","r","r"),
+caption = "Baselines on TEST set") |>
+kable_styling(bootstrap_options = c("striped","hover","condensed"),
+full_width = FALSE,
+htmltable_class = "fit-table") |>
+row_spec(highlight_idx, bold = TRUE, color = "#0B63CE")
 
 ```
 
@@ -346,38 +365,41 @@ baselines |>
 
 **Four variants**
 
-- **QUINTILES_ALLFREQ** (5 rows/fish: F* + tsfeatures)  
-- **QUINTILES_FEATS** (5 rows/fish: tsfeatures only)  
-- **MEDIAN_ALLFREQ** (1 row/fish: median F* + tsfeatures)  
-- **MEDIAN_FEATS** (1 row/fish: tsfeatures only)
+- **QUINTILES_ALLFREQ** (5 rows/fish: F* + features)  
+- **QUINTILES_FEATS** (5 rows/fish: features only)  
+- **MEDIAN_ALLFREQ** (1 row/fish: median F* + features)  
+- **MEDIAN_FEATS** (1 row/fish: features only)
 
 ```{r tsfeatures-automl}
+library(dplyr)
 library(kableExtra)
 
 ts_automl <- tribble(
-  ~Variant, ~`Acc @ 0.50`, ~`Policy thr`, ~`Acc @ Policy`,
-  "QUINTILES_ALLFREQ", 0.883, 0.4754, 0.867,
-  "QUINTILES_FEATS",   0.633, 0.4000, 0.750,
-  "MEDIAN_ALLFREQ",    0.917, 0.5796, 0.833,
-  "MEDIAN_FEATS",      0.667, 0.4000, 0.750
+~Variant, ~`Acc @ 0.50`, ~`Policy thr`, ~`Acc @ Policy`,
+"QUINTILES_ALLFREQ", 0.883, 0.4754, 0.867,
+"QUINTILES_FEATS",   0.633, 0.4000, 0.750,
+"MEDIAN_ALLFREQ",    0.917, 0.5796, 0.833,
+"MEDIAN_FEATS",      0.667, 0.4000, 0.750
 )
 
-# Pick the row to highlight: prefer Acc @ Policy, else fall back to Acc @ 0.50
+# Highlight best by Acc @ Policy; fallback to Acc @ 0.50
+
 score_for_rank <- dplyr::coalesce(ts_automl$`Acc @ Policy`, ts_automl$`Acc @ 0.50`)
-highlight_idx <- which.max(score_for_rank)
+highlight_idx  <- which.max(score_for_rank)
 
 ts_automl |>
-  mutate(
-    `Acc @ 0.50`   = sprintf("%.3f", `Acc @ 0.50`),
-    `Policy thr`   = sprintf("%.4f", `Policy thr`),
-    `Acc @ Policy` = sprintf("%.3f", `Acc @ Policy`)
-  ) |>
-  kable(format = "html", align = c("l","r","r","r"),
-        caption = "TS-features AutoML — TEST results (policy = VALID max-ACC, clamped [0.40, 0.70])") |>
-  kable_styling(bootstrap_options = c("striped","hover","condensed"),
-                full_width = FALSE,
-                htmltable_class = "fit-table") |>
-  row_spec(highlight_idx, bold = TRUE, color = "#0B63CE")   # <- bold + coloured text
+mutate(
+`Acc @ 0.50`   = sprintf("%.3f", `Acc @ 0.50`),
+`Acc @ Policy` = sprintf("%.3f", `Acc @ Policy`)
+) |>
+select(Variant, `Acc @ 0.50`, `Acc @ Policy`) |>
+kable(format = "html",
+align  = c("l","r","r"),
+caption = "TS-features AutoML — TEST results") |>
+kable_styling(bootstrap_options = c("striped","hover","condensed"),
+full_width = FALSE,
+htmltable_class = "fit-table") |>
+row_spec(highlight_idx, bold = TRUE, color = "#0B63CE")
 
 ```
 
@@ -392,20 +414,44 @@ ts_automl |>
 - **Use discriminative frequencies**  
   Select F* bands that best separate LT vs SMB.  
   → Train compact models on these **top F* only** to reduce noise & overfitting.
-- **Add richer time-series features from `fabletools/feasts`** 
+- **Add richer time-series features from `tsfeatures/feasts`** 
 
 
 
-##  {.center}
+## {#final} 
 
-::: {.splash-quote}
-> <span class="q">Every fish leaves a sonic fingerprint. Our job is to read it.</span>  
-> <span class="attr">Fish Hydroacoustics — ETC5543</span>
-:::
+<!-- Inline CSS scoped ONLY to this slide -->
+<style>
+/* scope to this slide by id so nothing else is touched */
+.reveal section#final .closing-card{
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  height:68vh; max-width:88vw; margin:6vh auto 0; padding:2.6rem 3.2rem;
+  border-radius:30px;
+  background:
+    radial-gradient(1100px 540px at 30% 20%, rgba(255,255,255,.08), transparent 60%),
+    radial-gradient(900px 700px at 70% 70%, rgba(255,255,255,.06), transparent 60%),
+    linear-gradient(180deg, #0f2d43 0%, #092536 100%);
+  box-shadow:0 22px 46px rgba(0,0,0,.28);
+  color:#fff; text-align:center;
+}
+.reveal section#final .closing-card .q{
+  margin:0;
+  font-weight:900; line-height:1.18; letter-spacing:.2px;
+  font-size:clamp(40px, 5.2vw, 72px);
+  text-shadow:0 2px 8px rgba(0,0,0,.28);
+}
+.reveal section#final .closing-card .attr{
+  margin-top:1rem; font-style:italic;
+  font-size:clamp(18px, 2.2vw, 28px);
+  text-shadow:0 1px 6px rgba(0,0,0,.28);
+  opacity:.98;
+}
+/* kill any default paragraph spacing inside the card */
+.reveal section#final .closing-card p{ margin:0; }
+</style>
 
-
-
-
-
-
-
+<div class="closing-card">
+  <p class="q">Every fish leaves a sonic fingerprint.</p>
+  <p class="q">Our job is to read it.</p>
+  <p class="attr">Fish Hydroacoustics — ETC5543</p>
+</div>
