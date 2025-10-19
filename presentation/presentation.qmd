@@ -53,7 +53,7 @@ stopifnot(length(freq_cols) > 0)
 ```
 
 ```{r}
-```{r}
+
 #| label: build-pipeline-svg
 #| include: false
 #| warning: false
