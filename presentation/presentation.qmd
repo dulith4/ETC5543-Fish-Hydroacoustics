@@ -12,6 +12,7 @@ format:
     margin: 0.06
     css: custom.scss
     smaller: true 
+    
 execute:
   echo: false
   warning: false
@@ -19,6 +20,7 @@ execute:
 execute-dir: project
 resources:
   - presentation/media/model_pipeline.png
+  - presentation/media/bg-deck.png
 
 ---
 
@@ -51,6 +53,7 @@ stopifnot(length(freq_cols) > 0)
 ```
 
 ```{r}
+```{r}
 #| label: build-pipeline-svg
 #| include: false
 #| warning: false
@@ -64,38 +67,39 @@ digraph pipeline {
   graph [layout=dot, rankdir=LR, nodesep=0.45, ranksep=0.7]
   node [shape=box, style=\"rounded,filled\", color=\"#1b4965\", fillcolor=\"#cae9ff\",
         fontname=Helvetica, fontsize=14, margin=\"0.18,0.10\" ]
+
   raw   [label=<<B>1) Raw Sonar</B><BR/><FONT POINT-SIZE='12'>F45–F170 per ping</FONT>>]
   agg   [label=<<B>2) Per-fish Aggregation</B><BR/><FONT POINT-SIZE='12'>Quantiles (q20–q100)</FONT>>]
   feats [label=<<B>3) feasts Features</B><BR/><FONT POINT-SIZE='12'>ACF / PACF / STL (shape)</FONT>>]
   model [label=<<B>4) H2O AutoML</B><BR/><FONT POINT-SIZE='12'>GBM / Deep Learning / XGBoost</FONT>>]
+
   edge  [color=\"#003049\", penwidth=1.6, arrowhead=normal, arrowsize=0.9]
-  raw -> agg   [label=\" per fish \", fontsize=11]
-  agg -> feats [label=\" shape descriptors \", fontsize=11]
+  raw   -> agg   [label=\" per fish \", fontsize=11]
+  agg   -> feats [label=\" shape descriptors \", fontsize=11]
   feats -> model [label=\" features → classifier \", fontsize=11]
+
+  /* keep the grouped-CV note only */
   note1 [shape=note, color=\"#577590\", fillcolor=\"#eaf4ff\",
          label=<<B>Grouped CV</B><BR/><FONT POINT-SIZE='11'>by fishNum (60/20/20)</FONT>>]
-  note2 [shape=note, color=\"#577590\", fillcolor=\"#eaf4ff\",
-         label=<<B>Thresholds</B><BR/><FONT POINT-SIZE='11'>policy &amp; OOF clamp [0.40–0.70]</FONT>>]
+
   {rank=same; agg; feats}
-  agg   -> note1 [style=dashed, arrowhead=none]
-  model -> note2 [style=dashed, arrowhead=none]
+  agg -> note1 [style=dashed, arrowhead=none]
 }
 ")
 
-svg_txt <- DiagrammeRsvg::export_svg(gr)
-
-# Drop XML header/DOCTYPE so Reveal doesn’t show that text if it leaks
+svg_txt   <- DiagrammeRsvg::export_svg(gr)
 svg_nohdr <- sub("(?s)^.*?<svg", "<svg", svg_txt, perl = TRUE)
 
 ```
 
 
-## Why fish hydroacoustics? {.larger}
+## What & Why fish hydroacoustics? {.larger}
 
 :::: {.columns}
 ::: {.column width="58%"}
 <div style="font-size: 1.25em; line-height: 1.35;">
 - **Non-invasive** monitoring  
+- **Traditionally**: hydroacoustics used to measure fish biological/behavioral features (size, depth, abundance) — **not to classify species**.
 - **Management:** distinguish **LT** vs **SMB**  
 - **Question:** can the **FRC (45–170 kHz)** classify species?  
 - **Outcome:** scalable pipeline for species ID & trends
@@ -109,11 +113,19 @@ svg_nohdr <- sub("(?s)^.*?<svg", "<svg", svg_txt, perl = TRUE)
 
 
 
+<style>
+/* Make slide backgrounds transparent so the backdrop shows through */
+.reveal .slides > section:not(.title-slide):not(#final),
+.reveal .slides > section > section:not(#final) {
+  background: transparent !important;
+}
+</style>
+
 
 
 
 ## About the dataset {.larger}
-- ~**30k** rows × **302** variables; two species (**LT**, **SMB**)  
+- ~**30k** observations × **302** variables; two species (**LT**, **SMB**)  
 - Processed in **Echoview**  
 - Signals: **F45–F170** (Frequency Response Curve)  
 - Context: morphometrics, depth, speed, orientation  
@@ -185,21 +197,36 @@ gg <- ggplot() +
 # Interactive plotly (hover shows frequency, quantile and TS value)
 # Keep your gg object as-is above…
 
+# Caption text (edit to taste)
+cap_txt <- "Per-species FRC: ribbon = Q25–Q75; dashed = Q25/Q50/Q75/Q100"
+
 ggplotly(
   gg,
   tooltip = c("x","y","quant")
 ) |>
   layout(
-    # make room for facet strip titles (top) and axis titles (left/bottom)
-    margin = list(l = 90, r = 180, t = 60, b = 110),
+    # give a bit more top space for the caption
+    margin = list(l = 90, r = 180, t = 86, b = 110),
     hovermode = "x unified",
-    # axis titles + auto margins so labels never get clipped
-    xaxis  = list(title = "Frequency (kHz)",       automargin = TRUE),
-    xaxis2 = list(title = "Frequency (kHz)",       automargin = TRUE),
-    yaxis  = list(title = "Target Strength (dB)",  automargin = TRUE),
-    yaxis2 = list(title = "Target Strength (dB)",  automargin = TRUE),
-    # keep legend to the right so it doesn't fight the footer
-    legend = list(x = 1.02, y = 0.5, xanchor = "left", yanchor = "middle")
+
+    # axes (keep your auto margins so labels don't clip)
+    xaxis  = list(title = "Frequency (kHz)",      automargin = TRUE),
+    xaxis2 = list(title = "Frequency (kHz)",      automargin = TRUE),
+    yaxis  = list(title = "Target Strength (dB)", automargin = TRUE),
+    yaxis2 = list(title = "Target Strength (dB)", automargin = TRUE),
+
+    # keep legend to the right
+    legend = list(x = 1.02, y = 0.5, xanchor = "left", yanchor = "middle"),
+
+    # --- top caption as an annotation ---
+    annotations = list(list(
+      text = cap_txt,
+      x = 0.5, y = 1.08,                 # centered, just above the plot
+      xref = "paper", yref = "paper",
+      xanchor = "center", yanchor = "bottom",
+      showarrow = FALSE,
+      font = list(size = 12, color = "#444")
+    ))
   ) |>
   config(responsive = TRUE, displayModeBar = FALSE)
 
@@ -212,6 +239,7 @@ ggplotly(
 :::: {.columns}
 ::: {.column width="42%"}
 - **Different echoes (45–170 kHz)** → the **FRC**
+- **Summarised data**: using per-frequency summaries (mean ± SE) to reveal **clearer species patterns** and **reduce noise**
 - Species show **distinct curve shapes**
 - Hypothesis: **FRC alone** can separate LT vs SMB
 :::
@@ -219,21 +247,24 @@ ggplotly(
 ::: {.column width="58%"}
 ```{r}
 #| label: fig-frc-species
+#| fig-cap: "Mean Frequency Response Curve (FRC) with ±SE ribbon by species"
+#| cap-location: top
 #| fig-width: 7
 #| fig-height: 5
 #| fig-align: center
 
 freq_long <- fish_raw |>
-  dplyr::select(species, dplyr::all_of(freq_cols)) |>
-  tidyr::pivot_longer(-species, names_to = "frequency", values_to = "TS") |>
-  dplyr::mutate(frequency = readr::parse_number(frequency))
+dplyr::select(species, dplyr::all_of(freq_cols)) |>
+tidyr::pivot_longer(-species, names_to = "frequency", values_to = "TS") |>
+dplyr::mutate(frequency = readr::parse_number(frequency))
 
 ggplot(freq_long, aes(frequency, TS, colour = species, fill = species)) +
-  stat_summary(fun = mean, geom = "line", linewidth = 1) +
-  stat_summary(fun.data = mean_se, geom = "ribbon", alpha = 0.18, colour = NA) +
-  labs(x = "Frequency (kHz)", y = "Target Strength (dB)") +
-  theme_minimal(base_size = 13) +
-  theme(legend.position = "bottom", plot.margin = margin(5,5,0,5))
+stat_summary(fun = mean, geom = "line", linewidth = 1) +
+stat_summary(fun.data = mean_se, geom = "ribbon", alpha = 0.18, colour = NA) +
+labs(x = "Frequency (kHz)", y = "Target Strength (dB)") +
+theme_minimal(base_size = 13) +
+theme(legend.position = "bottom", plot.margin = margin(10,10,5,10))
+
 ```
 
 :::
@@ -244,52 +275,120 @@ ggplot(freq_long, aes(frequency, TS, colour = species, fill = species)) +
 
 ## Which frequencies separate species? {.smaller .h2-smaller}
 
-- Compare **LT vs SMB** at each frequency (standardised difference)
-- Peaks indicate **highly discriminative** frequencies
+- Every Frequency **isn’t** equally useful for classification
+- Better Classification by focusing on **discriminative frequencies**
+- Future tuning: select **top discriminative frequencies** only
+
 
 ```{r}
-#| label: fig-effectsize
+#| label: fig-permimp-quintiles-allfreq
 #| fig-width: 7
-#| fig-height: 4.2
+#| fig-height: 4.8
+#| fig-align: center
+#| out-width: 92%
+#| warning: false
+#| message: false
+#| echo: false
+#| cache: true
 
+suppressPackageStartupMessages(library(h2o))
 
-# Ensure the sign is LT − SMB
-fish_raw <- fish_raw |>
-  mutate(species = factor(species, levels = c("LT","SMB")))
+# silence the progress bars
+h2o.no_progress()
 
-# Cohen's d (optionally bias-correct to Hedges' g)
-effect_size <- function(x, g, hedges = FALSE) {
-  x1 <- x[g == levels(g)[1]]
-  x2 <- x[g == levels(g)[2]]
-  n1 <- sum(!is.na(x1)); n2 <- sum(!is.na(x2))
-  m1 <- mean(x1, na.rm = TRUE); m2 <- mean(x2, na.rm = TRUE)
-  s1 <- stats::var(x1, na.rm = TRUE); s2 <- stats::var(x2, na.rm = TRUE)
-  sp <- sqrt(((n1 - 1)*s1 + (n2 - 1)*s2) / (n1 + n2 - 2))
-  d  <- (m1 - m2) / sp
-  if (hedges) {
-    J <- 1 - 3 / (4*(n1 + n2) - 9)
-    d <- J * d
+# start or reuse H2O quietly (no console output)
+invisible(capture.output({
+  if (is.null(tryCatch(h2o.getConnection(), error = function(e) NULL))) {
+    h2o.init(nthreads = -1, max_mem_size = "6G")  # <-- no 'quiet=' here
   }
-  d
+}))
+
+# 1) Load your latest StackedEnsemble MOJO saved by the tsfeatures script
+mojo_paths <- list.files("outputs/models", pattern = "model\\.mojo\\.zip$", 
+                         recursive = TRUE, full.names = TRUE)
+mojo_paths <- mojo_paths[grepl("tsf_q_all|tsf_quint_all", mojo_paths)]
+stopifnot(length(mojo_paths) > 0)
+mojo_file <- mojo_paths[order(file.info(mojo_paths)$mtime, decreasing = TRUE)][1]
+invisible(capture.output({ model <- h2o.import_mojo(mojo_file) }))
+
+# 2) Load QUINTILES_ALLFREQ data + reproduce the same split (seed=73)
+qa <- readRDS(here("outputs","tables","fish_quintiles_allfreq_tsfeat.rds"))
+
+split_by_fish_strat <- function(df, p_train = 0.6, p_valid = 0.2, seed = 73) {
+  stopifnot(all(c("fishNum","species") %in% names(df)))
+  set.seed(seed)
+  ids <- dplyr::distinct(df, fishNum, species)
+  split_one <- function(di) {
+    n <- nrow(di); idx <- sample.int(n)
+    n_tr <- max(1, floor(p_train*n)); n_va <- max(1, floor(p_valid*n))
+    n_te <- max(1, n - n_tr - n_va)
+    while (n_tr + n_va + n_te > n) { if (n_tr > 1) n_tr <- n_tr - 1 else if (n_va > 1) n_va <- n_va - 1 else n_te <- n_te - 1 }
+    tibble::tibble(fishNum = di$fishNum[idx],
+                   split   = c(rep("train", n_tr), rep("valid", n_va), rep("test", n - n_tr - n_va)))
+  }
+  dplyr::bind_rows(lapply(dplyr::group_split(ids, species), split_one)) |>
+    dplyr::right_join(df, by = "fishNum") |>
+    dplyr::relocate(split)
 }
 
-# Compute effect size at each frequency column
-eff <- tibble(
-  freq_khz = parse_number(freq_cols),
-  d        = map_dbl(freq_cols, ~ effect_size(fish_raw[[.x]], fish_raw$species))
-) |> arrange(freq_khz)
+sp      <- split_by_fish_strat(qa, seed = 73)
+x_cols  <- setdiff(names(qa), intersect(names(qa), c("species","fishNum","quantile")))
+test_df <- dplyr::select(dplyr::filter(sp, split == "test"), dplyr::all_of(c("species", x_cols)))
 
-# Plot
-ggplot(eff, aes(freq_khz, d)) +
-  geom_hline(yintercept = 0, linewidth = 0.4, linetype = 2) +
-  geom_line(linewidth = 0.9) +
-  labs(
-    x = "Frequency (kHz)",
-    y = "Cohen's d (LT − SMB)"
+invisible(capture.output({ hex_te <- as.h2o(test_df) }))
+hex_te[,"species"] <- h2o.asfactor(hex_te[,"species"])
+
+# 3) Permutation importance for frequency bands only
+freq_cols <- grep("^F\\d", x_cols, value = TRUE)
+
+# helper: shuffle one H2O column in R and send it back (keeps the same name)
+shuffle_col <- function(fr, col) {
+  v <- as.data.frame(fr[, col])[[1]]
+  h <- as.h2o(sample(v))
+  colnames(h) <- col
+  h
+}
+
+# baseline AUC on the unchanged test frame (silence performance output)
+metric_auc <- function(mod, frame) {
+  perf <- NULL
+  invisible(capture.output({ perf <- h2o.performance(mod, frame) }))
+  as.numeric(h2o.auc(perf))
+}
+auc_base <- metric_auc(model, hex_te)
+
+# AUC drop when a single column is shuffled
+perm_drop <- function(col) {
+  all_cols <- colnames(hex_te)
+  others   <- setdiff(all_cols, col)             # keep species + other predictors
+  tmp <- h2o.cbind(hex_te[, others], shuffle_col(hex_te, col))
+  auc_base - metric_auc(model, tmp)              # drop = baseline − shuffled
+}
+
+# compute importance for the frequency features you care about
+imp <- tibble::tibble(
+  variable = freq_cols,
+  auc_drop = vapply(freq_cols, perm_drop, numeric(1))
+) |> dplyr::arrange(dplyr::desc(auc_drop))
+
+# optional: save for later
+readr::write_csv(imp, "outputs/tables/varimp_quintiles_allfreq_permutation.csv")
+
+# plot (top 20)
+topn <- head(imp, 20)
+ggplot2::ggplot(topn, ggplot2::aes(x = reorder(variable, auc_drop), y = auc_drop)) +
+  ggplot2::geom_col() +
+  ggplot2::coord_flip() +
+  ggplot2::labs(
+    x = NULL, y = "AUC drop when shuffled",
+    title = "Frequency importance (permutation) — QUINTILES_ALLFREQ"
   ) +
-  theme_minimal(base_size = 13)
-```
+  ggplot2::theme_minimal(base_size = 13)+
+  ggplot2::coord_flip(clip = "off") +
+  ggplot2::scale_y_continuous(expand = ggplot2::expansion(mult = c(0, 0.02)))
 
+
+```
 
 
 
@@ -297,8 +396,8 @@ ggplot(eff, aes(freq_khz, d)) +
 
 - Each fish’s **FRC (45–170 kHz)** summarised  
   - **Quantiles** (q20–q100) 
-- **feasts** features capture curve *shape* (ACF/PACF/STL) to encode smoothness, periodicity, and slope changes.
-- **H2O AutoML** across Stack ensemble/GBM / DL / XGBoost
+- `feasts` features capture curve *shape* (ACF/PACF/STL) to encode smoothness, periodicity, and slope changes.(**treat** each fish’s FRC as a short time series)
+- `H2O` `AutoML()` across Stack ensemble/GBM / DL / XGBoost
 - Grouped CV by **fish**, test on **held-out** set
 
 ```{r}
@@ -365,10 +464,10 @@ row_spec(highlight_idx, bold = TRUE, color = "#0B63CE")
 
 **Four variants**
 
-- **QUINTILES_ALLFREQ** (5 rows/fish: F* + features)  
-- **QUINTILES_FEATS** (5 rows/fish: features only)  
-- **MEDIAN_ALLFREQ** (1 row/fish: median F* + features)  
-- **MEDIAN_FEATS** (1 row/fish: features only)
+- **QUANTILES and ALL FREQUENCIES and TIME SERIES FEATURES** (5 rows/fish: F* + features)  
+- **QUANTILES and TIME SERIES FEATURES** (5 rows/fish: features only)  
+- **MEDIAN and ALL FREQUENCIES and TIME SERIES FEATURES** (1 row/fish: median F* + features)  
+- **MEDIAN and TIME SERIES FEATURES** (1 row/fish: features only)
 
 ```{r tsfeatures-automl}
 library(dplyr)
@@ -405,20 +504,37 @@ row_spec(highlight_idx, bold = TRUE, color = "#0B63CE")
 
 
 
-## Future Work: Improving Model Performance
+## Future Work: What’s next? {.bigger-future}
 
 - **OOF (Out-of-Fold) Threshold Tuning** – to optimise classification thresholds 
-
 - **Model Hyperparameter Tuning** – for the Deep Learning grid (layers, dropout, epochs, learning rate, etc.).  
-
 - **Use discriminative frequencies**  
   Select F* bands that best separate LT vs SMB.  
   → Train compact models on these **top F* only** to reduce noise & overfitting.
 - **Add richer time-series features from `tsfeatures/feasts`** 
 
 
+<style>
+/* Future Work slide — smaller, readable */
+.reveal .slides section.bigger-future{
+  font-size: 1.12em !important;      /* body text */
+}
+.reveal .slides section.bigger-future h2{
+  font-size: 1.65em !important;      /* title smaller */
+  line-height: 1.06 !important;
+  margin-bottom: .30em !important;
+}
+.reveal .slides section.bigger-future li{
+  margin-bottom: .30em !important;
+}
+</style>
 
-## {#final} 
+</style>
+
+
+## {#final .white}
+
+
 
 <!-- Inline CSS scoped ONLY to this slide -->
 <style>
