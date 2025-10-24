@@ -19,27 +19,429 @@ execute:
 fig-cap-location: top
 lang: en
 keywords: [hydroacoustics, fish acoustics, frequency response curve, H2O, machine learning]
+resources:
+  - figures/**
+
+
 ---
 
 
 # Abstract
 
-# 1 Introduction & Motivation
+Wideband hydroacoustics enables non-invasive monitoring of fish populations, but reliable species-level identification remains challenging when visual confirmation is impossible. This project investigates whether frequency-only acoustic signals (45-170 kHz) can accurately distinguish Lake Trout (LT) and Smallmouth Bass (SMB). Building on earlier work that used a recurrent neural network (RNN) for the same dataset, we first replicate that baseline and then extend the analysis using a broader, leakage-safe machine-learning framework.
 
-# 2 Data & Preparation
+We summarise each fish’s frequency response curve (FRC) using quantiles and tsfeatures time-series descriptors, then apply H2O AutoML across multiple model families under grouped validation by fish identifier. The best model achieves strong out-of-sample performance (AUC almost 0.95; accuracy almost 0.90) with the upper-mid frequency band (140–160 kHz) contributing most to discrimination. Targeted tuning—via out-of-fold threshold optimisation, deep-learning grid search, and frequency-selector features—further improves test accuracy and interpretability.
 
-# 3 Initial Data Analysis (IDA/EDA)
+Results demonstrate that wideband frequency-only signatures can separate species with high reliability, providing a reproducible and operationally deployable workflow for acoustic classification. All analyses are fully scripted in R using `renv` for dependency control and Git LFS for large data management.
 
-# 4 Feature Engineering
+#  Introduction & Motivation
 
-# 5 Classification Methods
+Hydroacoustic surveys provide a non-destructive way to monitor fish communities, but reliable species-level identification from sonar remains difficult when visual confirmation is impractical. Wideband transducers measure target strength (TS) across many frequencies, giving each fish an acoustic “fingerprint” or frequency response curve (FRC). If these frequency-only signals can separate species accurately, managers can obtain species-resolved indices without netting or tagging.
 
-# 6 Results
+Prior work (baseline). A related study on the same survey family applied several neural architectures—including fully-connected, convolutional, and recurrent neural networks (RNN/LSTM)—to size-standardised backscatter for species classification [@hydro_nn_internal_2025]. To ensure a fair comparison, we first replicate the RNN as a baseline (03a_rnn_reproduction.R) and also run AutoML on the same input representation (03_classification_original.R) to establish non-NN references. We then extend the methodology substantially.
 
-# 7 Temporal & Spatial Insights
+**Our approach (replicate →→ extend).**
 
-# 8 Discussion
+1. **Representation**. Summarise per-fish FRCs (45--170 kHz) using **quantiles** (q20–q100) and compute tsfeatures descriptors from short per-fish sequences, producing four datasets (quintiles/median x with/without raw F*).
 
-# 9 Conclusion & Future Work
+2. **Model breadth**. Benchmark H2O families (GLM, RF, GBM, DeepLearning) via AutoML with grouped validation by fishNum to avoid leakage, reserving an unseen test set.
+
+3. **Targeted tuning**. Convert the AutoML exploration to a single deployable model through out-of-fold threshold tuning (policy clamp [0.40,0.70][0.40,0.70]), a deep-learning grid for the top DL family, and frequency selectors (train-only top-K F*) to study which parts of the spectrum matter.
+
+4. **Interpretability**. Quantify which frequencies drive separation and relate them to plausible mechanisms (e.g., bladder resonance, orientation).
+
+**Contributions**.
+
+A **frequency-only classification pipeline** with leakage-aware evaluation (grouped by fish/region) and a fixed operational threshold.
+
+A **systematic representation study** (quantiles, tsfeatures, top-K F*) extending beyond the earlier RNN-only approach.
+
+Clear **feature-importance** summaries highlighting discriminative frequency regions.
+
+A **reproducible** R codebase (renv + Git LFS) with scripted outputs and one-shot execution.
+
+**Research questions**
+
+**Primary**
+**RQ1**. Can Lake Trout vs Smallmouth Bass be classified **from FRC-only signals (45--170 kHz)** using **grouped validation** and an unseen test set, and how do results compare with the reproduced RNN baseline?
+
+**Secondary**
+**RQ2**. Which **frequency regions** and **representations** (band means/ratios, PCA of FRC, tsfeatures, top-K F*) contribute most to separation?
+
+**RQ3**. What **descriptive** depth/orientation/behaviour patterns accompany species labels (not used for prediction)?
+
+**RQ4**. What are the key **limitations** (orientation, sampling bias, leakage risks) and how should future surveys/classifier deployment adapt?
+
+  **Non-goals**. We do **not** use morphometrics (length/weight) for prediction; temporal/spatial analyses are **descriptive only**.
+#  Data & Preparation
+
+## Source and structure
+
+The dataset is provided as an RDS file (`TSresponse_clean.RDS`, tracked via Git LFS) with over **30k** rows and **302** variables. Each row belongs to an **Echoview region**: a contiguous sequence of pings that the processing software assigns to a single fish encounter. Two identifiers link the data:
+
+- `fishNum` — unique individual; LT/SMB prefix encodes species.
+
+- `Region_name` — encounter identifier within a fish.
+
+The block `F45..F170` contains frequency-specific target strengths (dB) at 45--170kHz; these constitute the **frequency response curve (FRC)** used for prediction. Additional variables describe geometry/behaviour (e.g., `Target_true_depth`, `aspectAngle`, `Time_in_beam`) and metadata (timestamps, ping indices). A concise glossary appears in Appendix A.
+
+## Scope decisions
+
+To test whether frequency-only information can separate species, we **exclude** morphometrics (length, weight, etc.) from all predictive models. Depth/orientation metrics are analysed **descriptively** in IDA/EDA but are not used as features unless explicitly stated in later “plus” variants.
+
+## Cleaning and basic checks
+
+We perform light cleaning before feature construction:
+
+1. **Type & order**. Ensure `F*` columns are numeric and ordered by frequency; drop corrupted rows.
+
+2. **Species label**. Standardise to two classes: Lake Trout (LT) and Smallmouth Bass (SMB).
+
+3. **Duplicates**. Remove any accidental duplicate rows (exact key or repeated ping).
+
+4. **Sanity checks**. Count per-species records; check frequency coverage and missingness across `F*`.
+
+(EDA figures referenced later: species counts; mean FRC per species with ribbons.)
+
+## Fish-level representations (what we train on)
+
+Build per-fish summaries to reduce noise and respect the encounter structure.
+
+- **Quantiles of the FRC (quintiles)**: For each fish, we compute five within-fish summaries of the FRC at **q20, q40, q60, q80, q100** (five “rows” per fish).
+
+  - Output artifact: `outputs/tables/fish_freq_quintiles_long.rds`.
+
+  - This retains frequency resolution (columns `F45..F170`) while stabilising per-ping variability.
+
+- **Median FRC**: A single row per fish using the within-fish median of each `F*`.
+
+Used to create compact, one-row-per-fish variants.
+
+- **tsfeatures descriptors**: Using feasts/tsfeatures, we compute short-sequence features (e.g., ACF summaries) from per-fish frequency traces. We produce four datasets:
+
+  1. **quintiles_allfreq_tsfeat** — 5 rows/fish: raw `F*` + tsfeatures
+
+  2. **quintiles_tsfeat_only** — 5 rows/fish: tsfeatures only
+
+  3. **median_allfreq_tsfeat** — 1 row/fish: median `F*` + tsfeatures
+
+  4. **median_tsfeat_only** — 1 row/fish: tsfeatures only
+
+Later, create **“plus” variants** by augmenting with **top-K discriminative frequencies** selected on **train only** (no leakage).
+
+## Train/validation/test design (leakage-aware)
+
+- **Grouping**. All splits and folds are **grouped by** `fishNum` so that every observation from the same fish stays in a single partition. For quintile datasets, the five rows per fish move together.
+
+- **Stratification**. Within groups, we stratify by species to maintain balance.
+
+- **Holdout**. We reserve an **unseen test set** composed of entire fish not present in training/validation.
+
+- **Cross-validation**. Model selection uses grouped k-fold CV (typically k=5).
+
+- **Seed**. A fixed seed (73) is used for reproducibility.
+
+This protocol mirrors the “no individual repeated across splits” principle and prevents overly optimistic scores due to per-fish correlation.
+
+## Preprocessing for modelling
+
+- **Predictors**. Unless stated otherwise, features are the FRC block (`F45..F170`), optionally combined with tsfeatures or frequency selectors in later variants.
+
+- **Standardisation**. Where model families benefit (e.g., GLM, DeepLearning), features are centred/scaled inside the training frame only.
+
+- **Class label**. `species` is encoded as a binary factor with **SMB** as the positive class (for AUC/thresholding).
+
+- **Artifacts**. Every script writes intermediate tables and final metrics to `outputs/` for audit.
+
+## Reproducibility
+
+- **Environment**. The repository uses renv; `renv.lock` specifies exact package versions.
+
+- **Large files**. The RDS data and any large artifacts are tracked via **Git LFS**.
+
+- **One-shot run**. `analysis/run_all.R` reproduces the entire pipeline end-to-end.
+
+- **Fixed randomness**. All random processes (splits, AutoML seeds) use the project seed 73.
+#  Initial Data Analysis (IDA/EDA)
+
+```{r}
+#| echo: false
+#| output: false
+#| label: fig-path-check
+getwd()
+list.files("figures")
+file.exists("figures/hydro.png")
+file.exists(here::here("reports","figures","hydro.png"))
+
+```
+
+
+```{r}
+#| label: setup-eda
+#| include: false
+#| message: false
+#| warning: false
+
+library(tidyverse); library(here)
+
+# Make all relative paths start from the project root (works when knitting or running interactively)
+#knitr::opts_knit$set(root.dir = here::here())
+
+# Locate utils_data.R regardless of folder casing
+utils_path <- if (file.exists(here::here("analysis", "utils_data.R"))) {
+  here::here("analysis", "utils_data.R")
+} else if (file.exists(here::here("Analysis", "utils_data.R"))) {
+  here::here("Analysis", "utils_data.R")
+} else {
+  stop("Cannot find utils_data.R. Check that it exists in 'analysis/' (or 'Analysis/').")
+}
+
+source(utils_path)
+
+# Load transformed data (uses your cache if present)
+fish_raw <- load_fish_transformed(
+  raw_path  = here::here("data", "TSresponse_clean.RDS"),
+  use_cache = TRUE,
+  cache_path = here::here("outputs", "cache", "TS_clean_transformed.rds")
+)
+
+# Frequency columns, including decimals like F45.5
+freq_cols <- names(fish_raw)[stringr::str_detect(names(fish_raw), "^F\\d+(?:\\.\\d+)?$")]
+stopifnot(length(freq_cols) > 0)
+
+# Ensure species is LT/SMB factor
+if (!"species" %in% names(fish_raw)) {
+  fish_raw <- fish_raw %>%
+    mutate(species = case_when(
+      stringr::str_starts(fishNum, "LT")  ~ "LT",
+      stringr::str_starts(fishNum, "SMB") ~ "SMB",
+      TRUE ~ NA_character_
+    ))
+}
+fish_raw <- fish_raw %>% filter(species %in% c("LT","SMB")) %>%
+  mutate(species = factor(species, levels = c("LT","SMB")))
+
+```
+
+
+## What is fish hydroacoustics?
+
+Fish hydroacoustics is the study of how sound waves interact with fish underwater.
+A transducer emits sound pulses (pings) and records the returning echoes—how strongly a fish reflects sound depends on its body shape, tissue composition, and especially the gas-filled swim bladder.
+Each fish produces a unique pattern of backscatter strength across frequencies, known as a Frequency Response Curve (FRC).
+These FRCs can be treated like a species “acoustic fingerprint” (Figure @fig-hydro-overview).
+
+![](figures/hydro.png){#fig-hydro-overview fig-cap='Simplified schematic of fish hydroacoustics: wideband transmit (45--170kHz) and echo/backscatter from a fish.' fig-align="center" width=70%}
+
+
+
+## Why use hydroacoustics for classification?
+
+Hydroacoustics offers several advantages over traditional netting or visual observation:
+
+- Non-invasive: Fish remain undisturbed; sampling covers large volumes quickly.
+
+- Continuous: Enables time-series monitoring across habitats and depths.
+
+- Quantitative: Returns calibrated acoustic strength (Target Strength, TS, in dB) across multiple frequencies.
+
+Because the FRC shape reflects biological differences (e.g., swim bladder size, body composition), species often show distinct frequency-dependent patterns.
+Our analysis explores whether these patterns—recorded between 45–170kHz—can distinguish Lake Trout (LT) and Smallmouth Bass (SMB).
+
+## Quantile envelopes
+
+We first examine the **raw distribution of target strengths (TS)** across frequencies to understand within-species variability.
+Figure @fig-frc-quantiles presents **per-species quantile envelopes**, where the shaded band captures the interquartile range (Q25–Q75) and dashed lines indicate additional quantiles (Q25, Q50, Q75, Q100).
+The clear vertical offset between Lake Trout (LT) and Smallmouth Bass (SMB) across most of the spectrum shows that separation is not driven by a few extreme observations — instead, the difference is consistent throughout each frequency range.
+This highlights that species differences are evident even before aggregation, reflecting genuine signal-level distinctions in acoustic response.
+
+```{r}
+#| label: fig-frc-quantiles
+#| fig-cap: "Frequency-response quantiles by species. Shaded bands show Q25–Q75 with the solid line as the median; dashed lines are Q25 and Q75; dotted lines show min and max. Between-species offsets persist across the full band, with the clearest separation in the upper-mid range (140–160 kHz)."
+#| fig-width: 9
+#| fig-height: 4.8
+#| fig-align: center
+
+freq_long <- fish_raw |>
+select(species, all_of(freq_cols)) |>
+pivot_longer(-species, names_to = "frequency", values_to = "TS") |>
+mutate(frequency = readr::parse_number(frequency))
+
+qdf <- freq_long |>
+  group_by(species, frequency) |>
+  summarise(
+    q0   = min(TS, na.rm = TRUE),
+    q25  = quantile(TS, 0.25, na.rm = TRUE),
+    q50  = quantile(TS, 0.50, na.rm = TRUE),
+    q75  = quantile(TS, 0.75, na.rm = TRUE),
+    q100 = max(TS, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+q_lines <- qdf |>
+  pivot_longer(q0:q100, names_to = "quant", values_to = "TSq")
+
+cols_fill <- c("LT" = "#F7C6C6", "SMB" = "#BFECEF")
+cols_line <- c("LT" = "#E05A5A", "SMB" = "#1FBFCF")
+
+ggplot() +
+  geom_ribbon(
+    data = qdf,
+    aes(x = frequency, ymin = q25, ymax = q75, fill = species),
+    alpha = 0.35, colour = NA
+  ) +
+  geom_line(
+    data = filter(q_lines, quant %in% c("q25","q50","q75")),
+    aes(x = frequency, y = TSq, colour = species, linetype = quant),
+    linewidth = 1
+  ) +
+  geom_line(  # draw min/max lighter & thinner so they don't dominate
+    data = filter(q_lines, quant %in% c("q0","q100")),
+    aes(x = frequency, y = TSq, colour = species),
+    linetype = "dotted", linewidth = 0.6, alpha = 0.6
+  ) +
+  facet_wrap(~ species, nrow = 1, scales = "fixed") +
+  scale_fill_manual(values = cols_fill, guide = "none") +
+  scale_colour_manual(values = cols_line, guide = "none") +
+  scale_linetype_manual(
+    values = c(q25 = "dashed", q50 = "solid", q75 = "dashed"),
+    labels = c(q25 = "Q25", q50 = "Median", q75 = "Q75")
+  ) +
+  guides(linetype = guide_legend(title = NULL, nrow = 1)) +
+  labs(x = "Frequency (kHz)", y = "Target Strength (dB)") +
+  coord_cartesian(ylim = c(-120, -20)) +
+  theme_minimal(base_size = 13) +
+  theme(
+    panel.grid.minor = element_blank(),
+    strip.text = element_text(face = "bold"),
+    legend.position = "bottom"
+  )
+
+
+```
+
+## Mean frequency response by species
+
+After examining the full distribution, we next summarise the data to compare **average acoustic profiles between species**.
+Figure @fig-frc-species shows the **mean target strength (TS)** at each frequency with a shaded **standard error (SE)** ribbon.
+The two mean curves diverge most noticeably in the **low-frequency band (50–120 kHz)** and again in the **upper–mid band (140–160 kHz)**, suggesting that these regions carry the most discriminative information for species separation.
+These frequency bands will later correspond to the model-derived importance peaks, reinforcing that the strongest signals in the raw data also drive predictive performance.
+
+```{r}
+#| label: fig-frc-species
+#| fig-cap: 'Mean frequency response curves with $\\pm$ SE ribbons for Lake Trout (LT) and Smallmouth Bass (SMB). Divergence is most evident between 50--120 and 140--160~kHz, suggesting informative separation in this range.'
+
+
+#| fig-width: 7
+#| fig-height: 5
+#| fig-align: center
+
+
+ggplot(freq_long, aes(frequency, TS, colour = species, fill = species)) +
+stat_summary(fun = mean, geom = "line", linewidth = 1) +
+stat_summary(fun.data = mean_se, geom = "ribbon", alpha = 0.18, colour = NA) +
+labs(x = "Frequency (kHz)", y = "Target Strength (dB)") +
+theme_minimal(base_size = 13) +
+theme(legend.position = "bottom", plot.margin = margin(5,5,0,5))
+
+```
+
+
+
+
+
+## Effect size by frequency
+
+To formally assess which frequencies contribute most to separation, we compute Cohen’s d
+for each frequency column (F45–F170), using LT minus SMB (positive values indicate higher TS for LT).
+Moderate-to-large effect sizes (greater 0.5) appear around 140-160kHz, confirming this range as the most discriminative.
+
+```{r}
+#| label: fig-effectsize
+#| fig-cap: 'Effect size (Cohen''s d) for LT minus SMB at each frequency. Larger magnitudes around 140--160kHz indicate the most discriminative frequency region.'
+#| fig-width: 7
+#| fig-height: 4.2
+#| fig-align: center
+
+
+fish_raw <- fish_raw |> mutate(species = factor(species, levels = c("LT", "SMB")))
+
+effect_size <- function(x, g, hedges = FALSE) {
+x1 <- x[g == levels(g)[1]]; x2 <- x[g == levels(g)[2]]
+n1 <- sum(!is.na(x1)); n2 <- sum(!is.na(x2))
+m1 <- mean(x1, na.rm = TRUE); m2 <- mean(x2, na.rm = TRUE)
+s1 <- stats::var(x1, na.rm = TRUE); s2 <- stats::var(x2, na.rm = TRUE)
+sp <- sqrt(((n1 - 1)*s1 + (n2 - 1)*s2) / (n1 + n2 - 2))
+d  <- (m1 - m2) / sp
+if (hedges) d <- (1 - 3 / (4*(n1 + n2) - 9)) * d
+d
+}
+
+eff <- tibble(
+freq_khz = readr::parse_number(freq_cols),
+d        = purrr::map_dbl(freq_cols, ~ effect_size(fish_raw[[.x]], fish_raw$species))
+) |> arrange(freq_khz)
+
+ggplot(eff, aes(freq_khz, d)) +
+geom_hline(yintercept = 0, linewidth = 0.4, linetype = 2, colour = "grey50") +
+geom_line(linewidth = 0.9, colour = "#1a5276") +
+labs(x = "Frequency (kHz)", y = "Cohen's d (LT − SMB)") +
+theme_minimal(base_size = 13)
+
+```
+
+
+
+
+
+
+#  Feature Engineering
+
+#  Classification Methods
+
+#  Results
+
+## Feature importance: permutation on QUINTILES_ALLFREQ
+
+Permutation importance analysis quantifies how much each frequency band contributes to the classifier’s predictive power. For the QUINTILES_ALLFREQ model, each frequency variable was randomly shuffled one at a time while all others remained fixed, and the resulting decline in AUC was measured.
+
+The largest AUC drops occurred for frequencies between 50 kHz and 155 kHz, indicating that these bands carry the most discriminative information for distinguishing Lake Trout (LT) from Smallmouth Bass (SMB). Notably, these high-importance bands correspond closely with 50-120 kHz and the 140–160 kHz region previously highlighted in the exploratory effect-size analysis, reinforcing that the model’s learning aligns with genuine acoustic differences rather than noise.
+
+Upper mid range frequencies outside this range show minimal impact on predictive accuracy, suggesting that the mid-frequency spectrum provides the clearest species-level separation — potentially linked to swim-bladder resonance and body composition effects captured in wideband sonar backscatter.
+
+```{r}
+#| label: fig-permimp-quintiles-allfreq
+#| fig-cap: "Frequency importance (permutation) — QUINTILES_ALLFREQ. Bars show AUC drop when each frequency column is randomly shuffled on the TEST set (larger is more important)."
+#| fig-width: 7
+#| fig-height: 4.8
+#| fig-align: center
+#| out-width: 92%
+#| warning: false
+#| message: false
+#| echo: false
+#| cache: true
+
+
+
+imp <- readr::read_csv(here::here("outputs","tables","varimp_quintiles_allfreq_permutation.csv"),
+show_col_types = FALSE)
+
+topn <- imp %>% slice_max(auc_drop, n = 20)
+
+ggplot(topn, aes(x = reorder(variable, auc_drop), y = auc_drop)) +
+geom_col() +
+coord_flip(clip = "off") +
+labs(x = NULL, y = "AUC drop when shuffled",
+title = "Frequency importance (permutation) — QUINTILES_ALLFREQ") +
+theme_minimal(base_size = 13) +
+scale_y_continuous(expand = expansion(mult = c(0, 0.02)))
+
+```
+
+#  Temporal & Spatial Insights
+
+#  Discussion
+
+#  Conclusion & Future Work
 
 # References
