@@ -134,3 +134,21 @@ data/
 templates/
 
 **/*.quarto_ipynb
+
+# Quarto build artifacts
+reports/**/_freeze/
+reports/**/_cache/
+reports/**/cache/
+reports/**/figure-html/
+reports/**/figure-pdf/
+reports/**/*-cache/
+*.aux
+*.log
+*.out
+*.toc
+
+# Ignore all PDFs in reports...
+reports/*.pdf
+# ...except the final report PDF you want to track
+!reports/ETC5543_FishHydroacoustics_Report.pdf
+
