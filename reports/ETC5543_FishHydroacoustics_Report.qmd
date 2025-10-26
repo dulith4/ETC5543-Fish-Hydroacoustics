@@ -7,11 +7,16 @@ author:
 supervisor: "Natalia Da Silva"
 repository: "https://github.com/dulith4/ETC5543-Fish-Hydroacoustics"
 bibliography: references.bib
+execute-dir: project          # <- add this (top-level)
+
 format:
   report-pdf:
     toc: true
     number-sections: true
     df-print: default
+    cite-method: biblatex     # <- change
+    biblio-style: authoryear-comp   # <- change
+
 execute:
   echo: false
   warning: false
@@ -21,8 +26,7 @@ lang: en
 keywords: [hydroacoustics, fish acoustics, frequency response curve, H2O, machine learning]
 resources:
   - figures/**
-
-
+latex-auto-install: true
 ---
 
 
@@ -73,6 +77,7 @@ A **reproducible** R codebase (renv + Git LFS) with scripted outputs and one-sho
 **RQ4**. What are the key **limitations** (orientation, sampling bias, leakage risks) and how should future surveys/classifier deployment adapt?
 
   **Non-goals**. We do **not** use morphometrics (length/weight) for prediction; temporal/spatial analyses are **descriptive only**.
+  
 #  Data & Preparation
 
 ## Source and structure
@@ -162,7 +167,17 @@ This protocol mirrors the “no individual repeated across splits” principle a
 - **One-shot run**. `analysis/run_all.R` reproduces the entire pipeline end-to-end.
 
 - **Fixed randomness**. All random processes (splits, AutoML seeds) use the project seed 73.
+
 #  Initial Data Analysis (IDA/EDA)
+
+```{r}
+#| label: setup-dirs
+#| echo: false
+#| output: false
+dir.create(here::here("outputs","cache"), recursive = TRUE, showWarnings = FALSE)
+
+```
+
 
 ```{r}
 #| echo: false
@@ -223,6 +238,95 @@ fish_raw <- fish_raw %>% filter(species %in% c("LT","SMB")) %>%
 
 ```
 
+The dataset contains a moderate imbalance between the two species.  
+Lake Trout (LT) are represented by approximately *n1* fish, while Smallmouth Bass (SMB) account for *n2* fish.  
+
+Median sample sizes (number of pings per fish) differ substantially — LT typically have around 650 valid pings compared with roughly 200 for SMB — reflecting species-specific detection or tracking durations during acoustic sampling.  
+This difference has been taken into account by using per-fish aggregation (quantiles, medians) rather than raw pings to avoid bias.
+
+
+
+```{r}
+#| label: tbl-balance
+#| tbl-cap: "Class balance and per-fish sample size (pings)."
+#| echo: false
+library(dplyr)
+library(knitr)
+
+pings_per_fish <- fish_raw %>%
+  count(fishNum, species, name = "n_pings")   
+
+balance_tbl <- pings_per_fish %>%
+  ungroup() %>%                               
+  group_by(species) %>%
+  summarise(
+    n_fish       = n(),
+    median_pings = median(n_pings),
+    iqr_pings    = IQR(n_pings),
+    min_pings    = min(n_pings),
+    max_pings    = max(n_pings),
+    .groups = "drop"
+  ) %>%
+  mutate(
+    prop = n_fish / sum(n_fish),
+    prop = round(prop, 3)                     
+  )
+
+balance_tbl <- balance_tbl %>%
+  mutate(prop = scales::percent(n_fish / sum(n_fish), accuracy = 0.1))
+
+knitr::kable(balance_tbl) 
+
+```
+
+
+
+
+
+
+
+
+```{r}
+#| label: fig-pca-frc
+#| fig-cap: "PCA of median FRC (one point per fish). Species separate along PC1/PC2."
+#| fig-width: 6.8
+#| fig-height: 5.2
+library(dplyr)
+
+median_frc <- fish_raw |>
+group_by(fishNum, species) |>
+summarise(across(all_of(freq_cols), ~ median(.x, na.rm = TRUE)), .groups = "drop")
+
+X <- median_frc |> select(all_of(freq_cols)) |> as.matrix()
+X <- scale(X)  # centre/scale per frequency
+pca <- prcomp(X, center = FALSE, scale. = FALSE)
+
+scores <- as_tibble(pca$x[, 1:2]) |>
+bind_cols(median_frc |> select(species))
+
+var_expl <- summary(pca)$importance[2, 1:2]
+ggplot(scores, aes(PC1, PC2, colour = species)) +
+  geom_point(alpha = 0.8) +
+  labs(
+    x = sprintf("PC1 (%.0f%%)", 100*var_expl[1]),
+    y = sprintf("PC2 (%.0f%%)", 100*var_expl[2])
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(legend.position = "bottom")
+
+
+```
+
+
+The PCA of the median frequency response curves (FRCs) shows clear separation between Lake Trout (LT) and Smallmouth Bass (SMB) along the first two principal components (PC1 and PC2).  
+PC1 explains about 61% of total variance and captures the overall amplitude differences in backscatter strength, while PC2 (21%) reflects finer variations in frequency-dependent patterns.  
+The clustering of points by species indicates that most discriminatory information is captured by the leading components, confirming that frequency-only data already contain strong species-level signals before any supervised modelling.
+
+
+
+
+
+
 
 ## What is fish hydroacoustics?
 
@@ -239,11 +343,11 @@ These FRCs can be treated like a species “acoustic fingerprint” (Figure @fig
 
 Hydroacoustics offers several advantages over traditional netting or visual observation:
 
-- Non-invasive: Fish remain undisturbed; sampling covers large volumes quickly.
+- **Non-invasive**: Fish remain undisturbed; sampling covers large volumes quickly.
 
-- Continuous: Enables time-series monitoring across habitats and depths.
+- **Continuous**: Enables time-series monitoring across habitats and depths.
 
-- Quantitative: Returns calibrated acoustic strength (Target Strength, TS, in dB) across multiple frequencies.
+- **Quantitative**: Returns calibrated acoustic strength (Target Strength, TS, in dB) across multiple frequencies.
 
 Because the FRC shape reflects biological differences (e.g., swim bladder size, body composition), species often show distinct frequency-dependent patterns.
 Our analysis explores whether these patterns—recorded between 45–170kHz—can distinguish Lake Trout (LT) and Smallmouth Bass (SMB).
@@ -320,6 +424,7 @@ ggplot() +
 
 ```
 
+
 ## Mean frequency response by species
 
 After examining the full distribution, we next summarise the data to compare **average acoustic profiles between species**.
@@ -352,9 +457,12 @@ theme(legend.position = "bottom", plot.margin = margin(5,5,0,5))
 
 ## Effect size by frequency
 
-To formally assess which frequencies contribute most to separation, we compute Cohen’s d
-for each frequency column (F45–F170), using LT minus SMB (positive values indicate higher TS for LT).
-Moderate-to-large effect sizes (greater 0.5) appear around 140-160kHz, confirming this range as the most discriminative.
+Figure @fig-effectsize shows Cohen’s d values comparing Lake Trout (LT) and Smallmouth Bass (SMB) at each frequency between 45–170 kHz.
+Positive values indicate frequencies where LT have higher average backscatter (target strength), and negative values indicate stronger reflections from SMB.
+
+The plot reveals **moderate effect sizes** (0.2–0.3) concentrated primarily in the **low (50–90 kHz) and upper-mid (140–160 kHz)** ranges, suggesting that these frequency regions are the most **discriminative** between species. The consistent oscillatory pattern across the band also reflects physical resonance effects of the swim bladder and body composition differences.
+
+Later in **Section 5.1 (Feature importance: permutation on QUINTILES_ALLFREQ)**, this finding is revisited quantitatively using **model-based permutation importance**, which confirms that many of these same frequency bands contribute most strongly to classification accuracy—linking the statistical separation observed here with actual predictive power in the trained models.
 
 ```{r}
 #| label: fig-effectsize
@@ -410,38 +518,142 @@ The largest AUC drops occurred for frequencies between 50 kHz and 155 kHz, indic
 Upper mid range frequencies outside this range show minimal impact on predictive accuracy, suggesting that the mid-frequency spectrum provides the clearest species-level separation — potentially linked to swim-bladder resonance and body composition effects captured in wideband sonar backscatter.
 
 ```{r}
-#| label: fig-permimp-quintiles-allfreq
-#| fig-cap: "Frequency importance (permutation) — QUINTILES_ALLFREQ. Bars show AUC drop when each frequency column is randomly shuffled on the TEST set (larger is more important)."
-#| fig-width: 7
-#| fig-height: 4.8
-#| fig-align: center
-#| out-width: 92%
-#| warning: false
-#| message: false
-#| echo: false
-#| cache: true
+imp  <- readr::read_csv(here::here("outputs","tables","varimp_quintiles_allfreq_permutation.csv"), show_col_types = FALSE)
+topn <- dplyr::slice_max(imp, auc_drop, n = 20)
 
-
-
-imp <- readr::read_csv(here::here("outputs","tables","varimp_quintiles_allfreq_permutation.csv"),
-show_col_types = FALSE)
-
-topn <- imp %>% slice_max(auc_drop, n = 20)
-
-ggplot(topn, aes(x = reorder(variable, auc_drop), y = auc_drop)) +
-geom_col() +
-coord_flip(clip = "off") +
-labs(x = NULL, y = "AUC drop when shuffled",
+ggplot2::ggplot(topn, ggplot2::aes(x = reorder(variable, auc_drop), y = auc_drop)) +
+ggplot2::geom_col() +
+ggplot2::coord_flip(clip = "off") +
+ggplot2::labs(x = NULL, y = "AUC drop when shuffled",
 title = "Frequency importance (permutation) — QUINTILES_ALLFREQ") +
-theme_minimal(base_size = 13) +
-scale_y_continuous(expand = expansion(mult = c(0, 0.02)))
+ggplot2::theme_minimal(base_size = 13) +
+ggplot2::scale_y_continuous(expand = ggplot2::expansion(mult = c(0, 0.02)))
 
 ```
 
+
+
+
+
 #  Temporal & Spatial Insights
+
+
+```{r}
+#| label: fig-depth-dens
+#| fig-cap: "Depth distributions by species (if `Target_true_depth` exists)."
+#| fig-width: 6.5
+#| fig-height: 4
+
+if ("Target_true_depth" %in% names(fish_raw)) {
+ggplot(fish_raw, aes(Target_true_depth, fill = species, colour = species)) +
+geom_density(alpha = 0.25) +
+labs(x = "Target true depth (m)", y = "Density") +
+theme_minimal(base_size = 12) +
+theme(legend.position = "bottom")
+}
+
+```
 
 #  Discussion
 
 #  Conclusion & Future Work
 
 # References
+
+# Appendices
+
+
+```{r}
+#| label: fig-pings-per-fish
+#| fig-cap: "Distribution of pings per fish (by species)."
+#| fig-width: 6
+#| fig-height: 4
+
+
+ggplot(pings_per_fish, aes(n_pings, fill = species)) +
+geom_histogram(position = "identity", alpha = 0.55, bins = 30, colour = NA) +
+labs(x = "Pings per fish", y = "Count") +
+theme_minimal(base_size = 12) +
+theme(legend.position = "bottom")
+
+```
+
+
+```{r}
+#| label: fig-corr-heat
+#| fig-cap: "Correlation heatmap of frequency columns (pooled across species)."
+#| fig-width: 7
+#| fig-height: 6
+library(scales)
+
+X <- fish_raw |> select(all_of(freq_cols)) |> drop_na()
+R <- cor(X)
+ord <- order(readr::parse_number(colnames(R)))
+R <- R[ord, ord]
+
+image(
+1:ncol(R), 1:ncol(R), t(R[ncol(R):1, ]),
+axes = FALSE, xlab = "", ylab = "", col = hcl.colors(50, "Blues 3")
+)
+axis(1, at = seq_len(ncol(R)), labels = colnames(R)[ord], las = 2, cex.axis = 0.6)
+axis(2, at = seq_len(ncol(R)), labels = rev(colnames(R)[ord]), las = 2, cex.axis = 0.6)
+box()
+
+```
+
+```{r}
+#| label: fig-band-boxes
+#| fig-cap: "Band-averaged TS by species (low: 50–90, mid: 90–130, high: 130–170 kHz)."
+#| fig-width: 7
+#| fig-height: 4.5
+
+freq_num <- readr::parse_number(freq_cols)
+bands <- tibble(col = freq_cols, f = freq_num) |>
+mutate(band = case_when(
+f >= 50  & f <  90  ~ "Low (50–90)",
+f >= 90  & f < 130  ~ "Mid (90–130)",
+f >= 130 & f <= 170 ~ "High (130–170)",
+TRUE ~ "Other"
+)) |>
+filter(band != "Other")
+
+band_means <- fish_raw |>
+select(species, all_of(bands$col)) |>
+pivot_longer(-species, names_to = "col", values_to = "TS") |>
+left_join(bands, by = "col") |>
+group_by(species, band) |>
+summarise(TS = mean(TS, na.rm = TRUE), .groups = "drop")
+
+ggplot(band_means, aes(band, TS, fill = species)) +
+geom_col(position = position_dodge(width = 0.7)) +
+labs(x = NULL, y = "Mean TS (dB)") +
+theme_minimal(base_size = 12) +
+theme(legend.position = "bottom")
+
+```
+
+
+```{r}
+#| label: fig-outlier-rug
+#| fig-cap: "Robust z-score of median FRC per fish (flag > |3|)."
+#| fig-width: 6.2
+#| fig-height: 4.2
+
+robust_center <- function(x) median(x, na.rm = TRUE)
+robust_scale  <- function(x) IQR(x, na.rm = TRUE) / 1.349
+
+med_frc <- median_frc |> select(all_of(freq_cols))
+z <- sweep(med_frc, 2, apply(med_frc, 2, robust_center), "-")
+z <- sweep(z, 2, apply(med_frc, 2, robust_scale), "/")
+z_any <- apply(abs(z), 1, max, na.rm = TRUE)
+
+dfz <- tibble(fishNum = median_frc$fishNum, species = median_frc$species, zmax = z_any)
+
+ggplot(dfz, aes(zmax, fill = species)) +
+geom_histogram(bins = 30, alpha = 0.6, position = "identity", colour = NA) +
+geom_vline(xintercept = 3, linetype = 2) +
+labs(x = "Max robust |z| across F*", y = "Count") +
+theme_minimal(base_size = 12) +
+theme(legend.position = "bottom")
+
+```
