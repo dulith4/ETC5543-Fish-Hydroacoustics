@@ -152,3 +152,6 @@ reports/*.pdf
 # ...except the final report PDF you want to track
 !reports/ETC5543_FishHydroacoustics_Report.pdf
 
+# Local helper scripts (not required to knit the report)
+Analysis/make_results_from_manifest.R
+Analysis/utils_latest_artifacts.R
