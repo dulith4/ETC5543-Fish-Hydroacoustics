@@ -727,12 +727,22 @@ Viewer scripts such as `view_results_tsfeatures.R` and `view_results_rnn.R` enab
 #| message: false
 #| warning: false
 
-# ensure publish copies exist (idempotent)
 dir.create(here::here("reports","tables"), showWarnings = FALSE, recursive = TRUE)
+
 file.copy(here::here("outputs","tables","results_summary_latest_sorted.csv"),
-          here::here("reports","tables","results_summary_latest_sorted.csv"), overwrite = TRUE)
+          here::here("reports","tables","results_summary_latest_sorted.csv"),
+          overwrite = TRUE)
+
 file.copy(here::here("outputs","tables","threshold_policy_effects.csv"),
-          here::here("reports","tables","threshold_policy_effects.csv"), overwrite = TRUE)
+          here::here("reports","tables","threshold_policy_effects.csv"),
+          overwrite = TRUE)
+
+# NEW: copy var-importance if it exists
+src_varimp <- here::here("outputs","tables","varimp_quintiles_allfreq_permutation.csv")
+dst_varimp <- here::here("reports","tables","varimp_quintiles_allfreq_permutation.csv")
+if (file.exists(src_varimp)) {
+  file.copy(src_varimp, dst_varimp, overwrite = TRUE)
+}
 
 ```
 
@@ -746,16 +756,24 @@ The largest AUC drops occurred for frequencies between 50 kHz and 155 kHz, indic
 Upper mid range frequencies outside this range show minimal impact on predictive accuracy, suggesting that the mid-frequency spectrum provides the clearest species-level separation — potentially linked to swim-bladder resonance and body composition effects captured in wideband sonar backscatter.
 
 ```{r}
-imp  <- read_csv(here::here("outputs","tables","varimp_quintiles_allfreq_permutation.csv"), show_col_types = FALSE)
-topn <- slice_max(imp, auc_drop, n = 20)
+# Try reports/tables first (the published location), then outputs/tables
+cand <- c(
+  here::here("reports","tables","varimp_quintiles_allfreq_permutation.csv"),
+  here::here("outputs","tables","varimp_quintiles_allfreq_permutation.csv")
+)
+imp_path <- cand[file.exists(cand)][1]
+stopifnot(length(imp_path) == 1 && !is.na(imp_path))
 
-ggplot(topn, ggplot2::aes(x = reorder(variable, auc_drop), y = auc_drop)) +
-geom_col() +
-coord_flip(clip = "off") +
-labs(x = NULL, y = "AUC drop when shuffled",
-title = "Frequency importance (permutation) — QUINTILES_ALLFREQ") +
-theme_minimal(base_size = 13) +
-scale_y_continuous(expand = ggplot2::expansion(mult = c(0, 0.02)))
+imp  <- readr::read_csv(imp_path, show_col_types = FALSE)
+topn <- dplyr::slice_max(imp, auc_drop, n = 20)
+
+ggplot(topn, aes(x = reorder(variable, auc_drop), y = auc_drop)) +
+  geom_col() +
+  coord_flip(clip = "off") +
+  labs(x = NULL, y = "AUC drop when shuffled",
+       title = "Frequency importance (permutation) — QUINTILES_ALLFREQ") +
+  theme_minimal(base_size = 13) +
+  scale_y_continuous(expand = ggplot2::expansion(mult = c(0, 0.02)))
 
 ```
 
