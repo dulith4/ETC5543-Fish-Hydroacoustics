@@ -92,6 +92,8 @@ suppressPackageStartupMessages({
   library(knitr)  
   library(kableExtra)
   library(htmltools)
+  library(gt)
+  
   
 
   
