@@ -1,0 +1,5 @@
+variant,acc_050,thr_raw,acc_raw,thr_clip,acc_clip,delta_clip_vs_raw
+original_blocks,0.813,0.964,0.775,0.7,0.857,0.082
+quintiles_allfreq,0.883,0.475,0.867,0.475,0.867,0
+quintiles_feats,0.633,0.377,0.817,0.4,0.75,-0.067
+median_allfreq,0.917,0.58,0.833,0.58,0.833,0

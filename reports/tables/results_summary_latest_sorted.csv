@@ -1,0 +1,11 @@
+variant,auc_test,acc_test_050,acc_test_policy,thr_policy_raw,thr_policy_clip,oof_thr_raw,oof_thr_clip,acc_test_oofthr
+median_allfreq,1,0.75,0.583,0,NA,0.119,0.4,1
+median_allfreq_plus,1,0.75,0.583,0,NA,NA,NA,NA
+quintiles_allfreq,0.9542857142857143,0.767,0.917,0.162,NA,0.426,0.426,0.783
+quintiles_allfreq_plus,0.9542857142857143,0.767,0.917,0.162,NA,NA,NA,NA
+quintiles_feats,0.944,0.867,0.75,0.306,NA,0.014,0.4,0.633
+quintiles_feats_plus,0.944,0.867,0.75,0.306,NA,NA,NA,NA
+median_feats,0.9428571428571428,0.5,0.583,0,NA,0.787,0.7,0.667
+median_feats_plus,0.9428571428571428,0.5,0.583,0,NA,NA,NA,NA
+original_blocks,0.9271064852460201,0.813,0.857,0.964,NA,NA,NA,NA
+original,0.9271064852460201,0.813,0.663,1,NA,NA,NA,NA

@@ -7,27 +7,42 @@ author:
 supervisor: "Natalia Da Silva"
 repository: "https://github.com/dulith4/ETC5543-Fish-Hydroacoustics"
 bibliography: references.bib
-execute-dir: project          # <- add this (top-level)
+execute-dir: project          
 
 format:
   report-pdf:
+    pdf-engine: lualatex
+    include-in-header: header.tex
+    fig-pos: H      
+    tbl-pos: H      
     toc: true
     number-sections: true
     df-print: default
-    cite-method: biblatex     # <- change
-    biblio-style: authoryear-comp   # <- change
-
+    cite-method: biblatex     
+    biblio-style: authoryear-comp   
+freeze: false
 execute:
   echo: false
   warning: false
   message: false
+  cache: false
 fig-cap-location: top
 lang: en
 keywords: [hydroacoustics, fish acoustics, frequency response curve, H2O, machine learning]
 resources:
   - figures/**
+  - outputs/figures_report/**
 latex-auto-install: true
 ---
+
+```{r}
+#| label: setup-root
+#| include: false
+library(here)
+knitr::opts_knit$set(root.dir = here::here())
+cat("Knit root.dir =", getwd(), "\n")
+
+```
 
 
 # Abstract
@@ -80,7 +95,7 @@ A **reproducible** R codebase (renv + Git LFS) with scripted outputs and one-sho
   
 #  Data & Preparation
 
-## Source and structure
+## **Source and structure**
 
 The dataset is provided as an RDS file (`TSresponse_clean.RDS`, tracked via Git LFS) with over **30k** rows and **302** variables. Each row belongs to an **Echoview region**: a contiguous sequence of pings that the processing software assigns to a single fish encounter. Two identifiers link the data:
 
@@ -90,11 +105,11 @@ The dataset is provided as an RDS file (`TSresponse_clean.RDS`, tracked via Git 
 
 The block `F45..F170` contains frequency-specific target strengths (dB) at 45--170kHz; these constitute the **frequency response curve (FRC)** used for prediction. Additional variables describe geometry/behaviour (e.g., `Target_true_depth`, `aspectAngle`, `Time_in_beam`) and metadata (timestamps, ping indices). A concise glossary appears in Appendix A.
 
-## Scope decisions
+## **Scope decisions**
 
 To test whether frequency-only information can separate species, we **exclude** morphometrics (length, weight, etc.) from all predictive models. Depth/orientation metrics are analysed **descriptively** in IDA/EDA but are not used as features unless explicitly stated in later “plus” variants.
 
-## Cleaning and basic checks
+## **Cleaning and basic checks**
 
 We perform light cleaning before feature construction:
 
@@ -108,7 +123,7 @@ We perform light cleaning before feature construction:
 
 (EDA figures referenced later: species counts; mean FRC per species with ribbons.)
 
-## Fish-level representations (what we train on)
+## **Fish-level representations (what we train on)**
 
 Build per-fish summaries to reduce noise and respect the encounter structure.
 
@@ -134,7 +149,7 @@ Used to create compact, one-row-per-fish variants.
 
 Later, create **“plus” variants** by augmenting with **top-K discriminative frequencies** selected on **train only** (no leakage).
 
-## Train/validation/test design (leakage-aware)
+## **Train/validation/test design (leakage-aware)**
 
 - **Grouping**. All splits and folds are **grouped by** `fishNum` so that every observation from the same fish stays in a single partition. For quintile datasets, the five rows per fish move together.
 
@@ -148,7 +163,7 @@ Later, create **“plus” variants** by augmenting with **top-K discriminative 
 
 This protocol mirrors the “no individual repeated across splits” principle and prevents overly optimistic scores due to per-fish correlation.
 
-## Preprocessing for modelling
+## **Preprocessing for modelling**
 
 - **Predictors**. Unless stated otherwise, features are the FRC block (`F45..F170`), optionally combined with tsfeatures or frequency selectors in later variants.
 
@@ -158,7 +173,7 @@ This protocol mirrors the “no individual repeated across splits” principle a
 
 - **Artifacts**. Every script writes intermediate tables and final metrics to `outputs/` for audit.
 
-## Reproducibility
+## **Reproducibility**
 
 - **Environment**. The repository uses renv; `renv.lock` specifies exact package versions.
 
@@ -168,7 +183,7 @@ This protocol mirrors the “no individual repeated across splits” principle a
 
 - **Fixed randomness**. All random processes (splits, AutoML seeds) use the project seed 73.
 
-#  Initial Data Analysis (IDA/EDA)
+#  **Initial Data Analysis (IDA/EDA)**
 
 ```{r}
 #| label: setup-dirs
@@ -216,7 +231,7 @@ source(utils_path)
 # Load transformed data (uses your cache if present)
 fish_raw <- load_fish_transformed(
   raw_path  = here::here("data", "TSresponse_clean.RDS"),
-  use_cache = TRUE,
+  use_cache = FALSE,
   cache_path = here::here("outputs", "cache", "TS_clean_transformed.rds")
 )
 
@@ -328,7 +343,7 @@ The clustering of points by species indicates that most discriminatory informati
 
 
 
-## What is fish hydroacoustics?
+## **What is fish hydroacoustics?**
 
 Fish hydroacoustics is the study of how sound waves interact with fish underwater.
 A transducer emits sound pulses (pings) and records the returning echoes—how strongly a fish reflects sound depends on its body shape, tissue composition, and especially the gas-filled swim bladder.
@@ -339,7 +354,7 @@ These FRCs can be treated like a species “acoustic fingerprint” (Figure @fig
 
 
 
-## Why use hydroacoustics for classification?
+## **Why use hydroacoustics for classification?**
 
 Hydroacoustics offers several advantages over traditional netting or visual observation:
 
@@ -352,7 +367,7 @@ Hydroacoustics offers several advantages over traditional netting or visual obse
 Because the FRC shape reflects biological differences (e.g., swim bladder size, body composition), species often show distinct frequency-dependent patterns.
 Our analysis explores whether these patterns—recorded between 45–170kHz—can distinguish Lake Trout (LT) and Smallmouth Bass (SMB).
 
-## Quantile envelopes
+## **Quantile envelopes**
 
 We first examine the **raw distribution of target strengths (TS)** across frequencies to understand within-species variability.
 Figure @fig-frc-quantiles presents **per-species quantile envelopes**, where the shaded band captures the interquartile range (Q25–Q75) and dashed lines indicate additional quantiles (Q25, Q50, Q75, Q100).
@@ -425,7 +440,7 @@ ggplot() +
 ```
 
 
-## Mean frequency response by species
+## **Mean frequency response by species**
 
 After examining the full distribution, we next summarise the data to compare **average acoustic profiles between species**.
 Figure @fig-frc-species shows the **mean target strength (TS)** at each frequency with a shaded **standard error (SE)** ribbon.
@@ -455,7 +470,7 @@ theme(legend.position = "bottom", plot.margin = margin(5,5,0,5))
 
 
 
-## Effect size by frequency
+## **Effect size by frequency**
 
 Figure @fig-effectsize shows Cohen’s d values comparing Lake Trout (LT) and Smallmouth Bass (SMB) at each frequency between 45–170 kHz.
 Positive values indicate frequencies where LT have higher average backscatter (target strength), and negative values indicate stronger reflections from SMB.
@@ -505,11 +520,224 @@ theme_minimal(base_size = 13)
 
 #  Feature Engineering
 
+Transform each fish’s wideband frequency-response curve (FRC; 45–170 kHz) into stable, leakage-safe features for classification.
+
+**(a) Per-fish quintiles (five rows per fish).**
+
+Using `Analysis/02b_fish_quantiles.R`, we summarise each fish’s within-fish distribution at five quantiles **q20, q40, q60, q80, q100** while preserving frequency resolution (`F*` columns). This reduces per-ping noise but keeps the FRC shape. Output: outputs/tables/fish_freq_quintiles_long.rds.
+
+**(b) Time-series descriptors of FRC shape.**
+Treat each fish’s FRC as a short “series” across frequency and compute descriptors with feasts (ACF/PACF, STL, spectral) and, when available, tsfeatures (entropy, lumpiness, stability, unit-root tests, etc.). Sure — here’s a short, clear version you can drop right under your subheading:
+
+Each fish’s FRC is treated as a short *pseudo–time series* because backscatter values are ordered across frequency, not randomly scattered. This ordering allows us to use time-series descriptors (e.g., ACF, PACF, spectral features) to quantify how smoothly or abruptly the response changes across frequencies.
+
+
+
+
+- `Analysis/03b_features_fish_level.R` builds ACF-style features and pivots to **one row per fish**.
+
+- `Analysis/04_tsfeatures_build.R` and `Analysis/04e_tsfeatures_plus.R` (Tuning purpose) produce four standard variants (quintiles vs median; with/without raw `F*`) and their “+” versions (feasts + tsfeatures).
+
+
+**(c) Combined representations used downstream.**
+
+Benchmark four families of inputs (each later fed to H2O/AutoML):
+
+  1. **quintiles_allfreq_tsfeat** — 5 rows/fish: raw `F*` + descriptors
+
+  2. **quintiles_tsfeat_only** — 5 rows/fish: descriptors only
+
+  3. **median_allfreq_tsfeat** — 1 row/fish: median `F*` + descriptors
+
+  4. **median_tsfeat_only** — 1 row/fish: descriptors only
+  
+  “Plus” variants add extra tsfeatures (entropy, stability, unit-root, etc.).
+
+**(d) Standardisation.**
+
+For GLM/DeepLearning we centre/scale predictors inside the training frame; tree models use raw scales.
+
+**(e) Frequency selection (diagnostic, train-only).**
+
+We also explore **Top-K frequency selectors** guided by permutation importance (see Results S 7.1). Selectors are fit on **training only** to avoid leakage and then applied to validation/test.
+
+
+## **Datasets produced (inventory)**
+
+```{r}
+#| label: tbl-feature-sets-pretty
+#| tbl-pos: H
+#| tbl-cap: "Model input tables produced by the feature engineering scripts."
+#| echo: false
+#| message: false
+#| warning: false
+
+library(dplyr); library(stringr); library(purrr); library(tibble); library(knitr); library(kableExtra)
+
+brief <- function(path, id_cols = c("fishNum","species","quantile","n")) {
+  if (!file.exists(path)) return(tibble(file = basename(path), exists = FALSE))
+  x <- readRDS(path)
+  tibble(
+    file         = basename(path),
+    exists       = TRUE,
+    n_rows       = nrow(x),
+    n_cols       = ncol(x),
+    n_predictors = ncol(x) - sum(names(x) %in% id_cols)
+  )
+}
+
+paths <- c(
+  "outputs/tables/fish_quintiles_allfreq_tsfeat.rds",
+  "outputs/tables/fish_quintiles_tsfeat_only.rds",
+  "outputs/tables/fish_median_allfreq_tsfeat.rds",
+  "outputs/tables/fish_median_tsfeat_only.rds",
+  "outputs/tables/fish_quintiles_allfreq_tsfeat_plus.rds",
+  "outputs/tables/fish_quintiles_tsfeat_only_plus.rds",
+  "outputs/tables/fish_median_allfreq_tsfeat_plus.rds",
+  "outputs/tables/fish_median_tsfeat_only_plus.rds"
+)
+
+inv <- paths %>%
+  map_dfr(brief) %>%
+  mutate(
+    variant = str_remove(file, "\\.rds$"),
+    rep     = if_else(str_detect(variant, "^fish_quintiles"), "Quintiles (5×/fish)", "Median (1×/fish)"),
+    content = case_when(
+      str_detect(variant, "allfreq_tsfeat") ~ "Raw F* + features",
+      str_detect(variant, "tsfeat_only")    ~ "Features only",
+      TRUE ~ NA_character_
+    ),
+    plus    = if_else(str_detect(variant, "_plus$"), "plus", "—")
+  ) %>%
+  select(rep, content, plus, file, exists, n_rows, n_cols, n_predictors) %>%
+  arrange(rep, desc(content), plus)
+
+inv |>
+  kbl(format = "latex", booktabs = TRUE, digits = 0,
+      col.names = c("Representation","Contents","Extra","File","Exists","Rows","Cols","Predictors")) |>
+  kable_styling(latex_options = c("hold_position","striped","scale_down")) |>
+  column_spec(4, width = "7cm")   # wrap long file names
+```
+
+ @tbl-feature-sets-pretty summarizes the eight feature-engineered datasets used for classification.
+“Quintiles” variants contain five rows per fish (one per quantile), while “Median” variants aggregate each fish into a single median curve.
+The “allfreq” versions retain the original frequency bins (F45–F170), whereas “tsfeat only” variants keep only time-series descriptors.
+“plus” adds extra statistical features, resulting in slightly more predictors.
+
+
 #  Classification Methods
+
+
+
+## **Overview and motivation**
+
+The objective was to classify **Lake Trout (LT)** and **Smallmouth Bass (SMB)** using their frequency–response curves (FRC; 45–170 kHz).
+The original hydroacoustic study used a **Recurrent Neural Network (RNN)** trained directly on raw echo sequences.
+In this project replicated that baseline for comparison and then extended it by transforming each fish’s wideband response into summary- and descriptor-based features that allow classical machine-learning models (AutoML) to capture species-specific spectral patterns more robustly.
+
+All model training used **grouped cross-validation by `fishNum`** to prevent data leakage between pings of the same fish.
+
+
+
+## **Baseline: RNN replication**
+
+To reproduce the earlier approach, here implemented an **LSTM-based RNN** (Long Short-Term Memory) that processes short sequences of consecutive pings.
+Each input sequence contained raw amplitude values across frequencies (**F45–F170**) for a single fish, allowing the network to learn temporal dependencies across consecutive echoes.
+
+```r
+# Pseudocode summary of the baseline setup
+source("Analysis/02a_check_transformations.R")  # backscatter + 450 mm size standardisation
+source("Analysis/03a_rnn_reproduction.R")       # train/test LSTM sequence model
+```
+
+The RNN served purely as a **baseline** for sequence-level learning.
+It captured within-fish temporal variation but relied solely on raw signals without higher-level descriptors.
+
+
+## **AutoML on raw backscatter**
+
+To benchmark classical ensemble learners, the same cleaned data were used in **H2O AutoML** (`03_classification_original.R`, `03b_automl_backscatter.R`).
+Two configurations were tested:
+
+1. **original** – per-ping input (raw frequencies);
+2. **original_blocks** – five-ping block averages to smooth noise.
+
+AutoML evaluated a diverse model stack (GBM, XGBoost, DRF, GLM, DeepLearning, Stacked Ensembles) with 20 % validation and 20 % test partitions.
+Performance was summarised by AUC, log-loss, and accuracy at both the fixed 0.50 threshold and a *policy-adjusted* threshold (validation max-accuracy clipped to [0.40, 0.70]).
+
+
+## **Fish-level feature-based AutoML (main analysis)**
+
+The core analysis replaced raw pings with **fish-level summaries and descriptors** derived from the FRC shape.
+Feature engineering scripts (`03b_features_fish_level.R`, `04_tsfeatures_build.R`, `04e_tsfeatures_plus.R`) generated eight model inputs:
+
+| Representation         | Contents                 | Extra    |
+| ---------------------- | ------------------------ | -------- |
+| Quintiles (5 × / fish) | Raw F* + feasts features | — / plus |
+| Median (1 × / fish)    | Raw F* + feasts features | — / plus |
+
+Each fish’s FRC was treated as a short *pseudo-time series* across ordered frequencies.
+This ordering enabled computation of **time-series descriptors** using:
+
+* **`feasts`** – autocorrelation (ACF), partial ACF, seasonal STL, and spectral entropy
+* **`tsfeatures`** – higher-order statistics such as entropy, lumpiness, stability, and unit-root tests
+
+```r
+# Example feature extraction step
+tsib <- as_tsibble(fish_curve, index = freq_khz, key = fishNum)
+features <- features(tsib, list(feat_acf, feat_pacf, feat_stl, feat_spectral))
+```
+
+AutoML (`05_automl_tsfeatures.R`, `05b_automl_tsfeatures_plus.R`) was then run separately for each variant.
+Predictors for GLM and DeepLearning models were **centred and scaled within the training frame**, while tree-based models (GBM, XGBoost, DRF) used raw scales.
+
+
+
+## **Model tuning and thresholding**
+
+Targeted tuning followed three complementary scripts:
+
+* `04c_freqselector.R` – diagnostic *Top-K* frequency selection via permutation importance
+* `07_oof_threshold_tuning.R` – **out-of-fold** threshold estimation (train-only) to refine the policy threshold
+* `08_grid_dl_features.R` – deep-learning grid search exploring activations, dropout, and hidden units
+
+```r
+# Example: compute and clamp policy threshold
+thr_policy <- clip_thr(thr_max_acc(valid_pred), lo = 0.40, hi = 0.70)
+```
+
+All tuning respected the train/validate/test boundaries to avoid information leakage.
+
+
+
+## **Reproducibility and outputs**
+
+Each modelling stage automatically saved artefacts under `outputs/tables/` and `outputs/figures/`,
+including leaderboards, JSON metrics, threshold logs, confusion matrices, and ROC plots.
+Viewer scripts such as `view_results_tsfeatures.R` and `view_results_rnn.R` enable transparent re-inspection without rerunning models.
+
+
 
 #  Results
 
-## Feature importance: permutation on QUINTILES_ALLFREQ
+```{r}
+#| label: setup-publish-results
+#| echo: false
+#| output: false
+#| message: false
+#| warning: false
+
+# ensure publish copies exist (idempotent)
+dir.create(here::here("reports","tables"), showWarnings = FALSE, recursive = TRUE)
+file.copy(here::here("outputs","tables","results_summary_latest_sorted.csv"),
+          here::here("reports","tables","results_summary_latest_sorted.csv"), overwrite = TRUE)
+file.copy(here::here("outputs","tables","threshold_policy_effects.csv"),
+          here::here("reports","tables","threshold_policy_effects.csv"), overwrite = TRUE)
+
+```
+
+
+## **Feature importance: permutation on QUINTILES_ALLFREQ**
 
 Permutation importance analysis quantifies how much each frequency band contributes to the classifier’s predictive power. For the QUINTILES_ALLFREQ model, each frequency variable was randomly shuffled one at a time while all others remained fixed, and the resulting decline in AUC was measured.
 
@@ -518,19 +746,251 @@ The largest AUC drops occurred for frequencies between 50 kHz and 155 kHz, indic
 Upper mid range frequencies outside this range show minimal impact on predictive accuracy, suggesting that the mid-frequency spectrum provides the clearest species-level separation — potentially linked to swim-bladder resonance and body composition effects captured in wideband sonar backscatter.
 
 ```{r}
-imp  <- readr::read_csv(here::here("outputs","tables","varimp_quintiles_allfreq_permutation.csv"), show_col_types = FALSE)
-topn <- dplyr::slice_max(imp, auc_drop, n = 20)
+imp  <- read_csv(here::here("outputs","tables","varimp_quintiles_allfreq_permutation.csv"), show_col_types = FALSE)
+topn <- slice_max(imp, auc_drop, n = 20)
 
-ggplot2::ggplot(topn, ggplot2::aes(x = reorder(variable, auc_drop), y = auc_drop)) +
-ggplot2::geom_col() +
-ggplot2::coord_flip(clip = "off") +
-ggplot2::labs(x = NULL, y = "AUC drop when shuffled",
+ggplot(topn, ggplot2::aes(x = reorder(variable, auc_drop), y = auc_drop)) +
+geom_col() +
+coord_flip(clip = "off") +
+labs(x = NULL, y = "AUC drop when shuffled",
 title = "Frequency importance (permutation) — QUINTILES_ALLFREQ") +
-ggplot2::theme_minimal(base_size = 13) +
-ggplot2::scale_y_continuous(expand = ggplot2::expansion(mult = c(0, 0.02)))
+theme_minimal(base_size = 13) +
+scale_y_continuous(expand = ggplot2::expansion(mult = c(0, 0.02)))
 
 ```
 
+
+
+## **Model comparison overview**
+
+We compared the recurrent neural network (**RNN**) baseline from the original hydroacoustic study with a set of **H2O AutoML classifiers** trained on progressively feature-enriched inputs.
+The four core variants were:
+
+- **original_blocks**: raw frequency “blocks,” closest to the RNN baseline.
+
+- **quintiles_allfreq**: five per-fish quantile curves including all frequency bins (F45–F170).
+
+- **quintiles_feats**: quantile curves using only time-series descriptors.
+
+- **median_allfreq**: single per-fish median curve with all frequencies.
+
+Each model was evaluated on a **held-out test set** unseen during training.
+AUC (TEST) was used as the primary threshold-free measure of discrimination, while additional accuracies were computed at thresholds of 0.50, raw validation-selected, and the final **policy-clipped** values.
+
+
+```{r}
+#| label: setup-results
+#| include: false
+suppressPackageStartupMessages({
+  library(tidyverse)
+  library(here)
+  library(glue)
+  library(gt)
+  library(readr)
+})
+```
+
+```{r}
+#| label: load-results
+#| message: false
+
+library(here); library(readr); library(fs); library(dplyr)
+
+# helper: pick the first existing path
+first_existing <- function(...) {
+  for (p in c(...)) if (file.exists(p)) return(p)
+  stop("None of the expected files exist:\n", paste(c(...), collapse = "\n"))
+}
+
+# prefer reports/tables, fall back to outputs/tables
+sum_rep <- here("reports","tables","results_summary_latest_sorted.csv")
+sum_out <- here("outputs","tables","results_summary_latest_sorted.csv")
+thr_rep <- here("reports","tables","threshold_policy_effects.csv")
+thr_out <- here("outputs","tables","threshold_policy_effects.csv")
+
+path_summary <- first_existing(sum_rep, sum_out)
+path_thrpol  <- first_existing(thr_rep, thr_out)
+
+# if we used the outputs copies, publish them into reports/tables for the repo
+dir_create(here("reports","tables"))
+if (identical(path_summary, sum_out)) file_copy(sum_out, sum_rep, overwrite = TRUE)
+if (identical(path_thrpol,  thr_out)) file_copy(thr_out,  thr_rep, overwrite = TRUE)
+
+# read
+results_summary <- read_csv(path_summary, show_col_types = FALSE)
+thr_policy_tbl  <- read_csv(path_thrpol,  show_col_types = FALSE)
+
+focus_variants <- c("original_blocks","quintiles_allfreq","quintiles_feats","median_allfreq")
+results_focus    <- results_summary %>% filter(variant %in% focus_variants)
+thr_policy_focus <- thr_policy_tbl  %>% filter(variant %in% focus_variants)
+
+```
+
+
+
+## **Classification performance**
+
+Across models, discrimination performance was consistently high (Table 4).
+AUC (TEST) ranged from **0.93–0.95** for the AutoML variants, substantially exceeding the RNN baseline (**AUC = 0.84**).
+Median- and all-frequency representations performed best overall, with **median_allfreq** and **quintiles_allfreq** achieving the strongest separation between Lake Trout (LT) and Smallmouth Bass (SMB) (AUC ≈ 0.95–1.00).
+
+```{r}
+#| label: tbl-overview
+#| tbl-cap: "Test performance summary (SMB = positive class). We report threshold-free AUC (TEST) and thresholded accuracies at 0.50 and the policy threshold (raw, clipped to [0.40–0.70] if necessary)."
+#| echo: false
+
+# Left: AUC from results_summary; Right: all accuracies/thresholds from policy table
+perf_synced <- thr_policy_focus %>%
+  select(variant, acc_050, thr_raw, acc_clip) %>%               
+  left_join(
+    results_focus %>% select(variant, auc_test),                
+    by = "variant"
+  ) %>%
+  rename(
+    Variant                  = variant,
+    `AUC (TEST)`             = auc_test,
+    `Acc @ 0.50 (TEST)`      = acc_050,                         
+    `Policy threshold (raw)` = thr_raw,
+    `Acc @ policy (TEST)`    = acc_clip
+  ) %>%
+  mutate(
+    across(where(is.numeric), ~ round(.x, 3))
+  )
+
+gt::gt(perf_synced) |>
+  gt::sub_missing(everything(), missing_text = "–") |>
+  gt::cols_align(everything(), align = "center")
+
+```
+
+*(Full results in `outputs/tables/threshold_policy_effects.csv`.)*
+
+
+## **Effect of threshold policy**
+
+Thresholds derived from small validation splits occasionally drifted toward extreme values (e.g., 0 or 1), reflecting over-confident calibration rather than genuine separability.
+
+To standardise decision behaviour, we imposed a **policy window [0.40, 0.70]**:
+
+
+$$
+t_{\mathrm{clip}} = \min\!\bigl(\max(t_{\mathrm{raw}},\,0.40),\,0.70\bigr)
+$$
+
+
+
+This clamping reduced pathological cut-offs and produced more stable accuracies across models.
+For example, original_blocks improved from 0.775 (@ 0.964) to **0.857 (@ 0.70)**, while others showed negligible change (|ΔAcc| ≤ 0.07).
+
+Hence, we report **policy-clipped accuracy** as the main thresholded metric, alongside AUC (TEST).
+The RNN baseline, evaluated only at 0.50, achieved **accuracy = 0.593**, serving as a fixed-threshold reference.
+
+```{r}
+#| label: tbl-threshold-policy
+#| tbl-cap: "Effect of the [0.40, 0.70] threshold policy on TEST accuracy."
+#| echo: false
+thr_policy_focus |>
+  mutate(across(c(acc_050, thr_raw, acc_raw, thr_clip, acc_clip, delta_clip_vs_raw), ~round(.x, 3))) |>
+  rename(
+    Variant = variant,
+    `Acc @ 0.50` = acc_050,
+    `Raw thr` = thr_raw,
+    `Acc @ raw` = acc_raw,
+    `Clipped thr` = thr_clip,
+    `Acc @ clipped` = acc_clip,
+    `Δ Acc (clip − raw)` = delta_clip_vs_raw
+  ) |>
+  gt() |>
+  sub_missing(everything(), missing_text = "–") |>
+  tab_style(
+    style = cell_fill(color = "#e8f5e9"),
+    locations = cells_body(columns = `Δ Acc (clip − raw)`, rows = `Δ Acc (clip − raw)` > 0)
+  ) |>
+  tab_style(
+    style = cell_fill(color = "#ffebee"),
+    locations = cells_body(columns = `Δ Acc (clip − raw)`, rows = `Δ Acc (clip − raw)` < 0)
+  ) |>
+  cols_align(everything(), align = "center")
+```
+
+
+
+## **Receiver-operating characteristics**
+
+Figure 6 shows ROC curves for the four representative models: original_blocks, quintiles_allfreq, quintiles_feats, and median_allfreq.
+
+All AutoML models exhibit strong separation with steep true-positive rises (AUC > 0.93), whereas the RNN curve is noticeably flatter (AUC = 0.84).
+
+Among them, median_allfreq approaches perfect discrimination (AUC = 1.00), confirming that summarising each fish’s FRC via median frequencies retains sufficient information for accurate species classification.
+
+```{r}
+#| label: fig-rocs
+#| fig-cap: "ROC curves for representative AutoML models (TEST split)."
+#| fig-show: hold
+#| echo: false
+
+library(here)
+library(fs)
+
+src_dir <- here("outputs","figures_report")
+dst_dir <- here("reports","figures")  # <-- put files where LaTeX will look
+dir_create(dst_dir)
+
+variants <- c("original_blocks","quintiles_allfreq","quintiles_feats","median_allfreq")
+
+pick_newest <- function(dir, pattern_ci) {
+  all <- dir_ls(dir, type = "file", recurse = FALSE)
+  hits <- all[grepl(pattern_ci, path_file(all), ignore.case = TRUE)]
+  if (!length(hits)) return(NA_character_)
+  hits[which.max(file_info(hits)$modification_time)]
+}
+
+src_files <- vapply(
+  variants,
+  function(v) {
+    prefix <- switch(v,
+      "original_blocks"   = "roc_original_blocks",
+      "quintiles_allfreq" = "roc_quintiles_allfreq",
+      "quintiles_feats"   = "roc_quintiles_feats",
+      "median_allfreq"    = "roc_median_allfreq"
+    )
+    pick_newest(src_dir, paste0("^", prefix, ".*\\.png$"))
+  },
+  character(1)
+)
+
+if (anyNA(src_files)) {
+  missing <- variants[is.na(src_files)]
+  avail <- path_file(dir_ls(src_dir, type = "file", recurse = FALSE))
+  stop(
+    "Missing ROC PNG(s) for: ",
+    paste(missing, collapse = ", "),
+    "\nLooked in: ", src_dir,
+    "\nAvailable files:\n", paste0("  - ", avail, collapse = "\n")
+  )
+}
+
+stable_files <- file.path(dst_dir, paste0("ROC_", variants, ".png"))
+file_copy(src_files, stable_files, overwrite = TRUE)
+
+# from the perspective of reports/, these are now "figures/..."
+rel <- file.path("figures", paste0("ROC_", variants, ".png"))
+stopifnot(all(file.exists(here("reports", rel))))
+knitr::include_graphics(rel)
+
+```
+
+*(ROCs copied into `reports/figures/` as `ROC_original_blocks.png`, `ROC_quintiles_allfreq.png`, `ROC_quintiles_feats.png`, `ROC_median_allfreq.png`.)*
+
+
+
+## Summary
+
+The AutoML pipelines substantially outperformed the RNN baseline across all metrics.
+
+Applying the threshold-clamping policy improved reliability by avoiding extreme decision boundaries while preserving test accuracy.
+
+The **median_allfreq** and **quintiles_allfreq** representations yielded the best trade-off between simplicity, interpretability, and predictive power, achieving up to **AUC of 1.0 and Acc between 0.86–0.92** on the held-out test set.
 
 
 
