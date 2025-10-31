@@ -32,6 +32,7 @@ keywords: [hydroacoustics, fish acoustics, frequency response curve, H2O, machin
 resources:
   - figures/**
   - outputs/figures_report/**
+  - reports/figures_roc/**
 latex-auto-install: true
 ---
 
@@ -966,57 +967,15 @@ Among them, median_allfreq approaches perfect discrimination (AUC = 1.00), confi
 ```{r}
 #| label: fig-rocs
 #| fig-cap: "ROC curves for representative AutoML models (TEST split)."
-#| fig-show: hold
 #| echo: false
 
-library(here)
-library(fs)
+knitr::include_graphics(c(
+  "figures_roc/ROC_original_blocks.png",
+  "figures_roc/ROC_quintiles_allfreq.png",
+  "figures_roc/ROC_quintiles_feats.png",
+  "figures_roc/ROC_median_allfreq.png"
+))
 
-src_dir <- here("outputs","figures_report")
-dst_dir <- here("reports","figures")  # <-- put files where LaTeX will look
-dir_create(dst_dir)
-
-variants <- c("original_blocks","quintiles_allfreq","quintiles_feats","median_allfreq")
-
-pick_newest <- function(dir, pattern_ci) {
-  all <- dir_ls(dir, type = "file", recurse = FALSE)
-  hits <- all[grepl(pattern_ci, path_file(all), ignore.case = TRUE)]
-  if (!length(hits)) return(NA_character_)
-  hits[which.max(file_info(hits)$modification_time)]
-}
-
-src_files <- vapply(
-  variants,
-  function(v) {
-    prefix <- switch(v,
-      "original_blocks"   = "roc_original_blocks",
-      "quintiles_allfreq" = "roc_quintiles_allfreq",
-      "quintiles_feats"   = "roc_quintiles_feats",
-      "median_allfreq"    = "roc_median_allfreq"
-    )
-    pick_newest(src_dir, paste0("^", prefix, ".*\\.png$"))
-  },
-  character(1)
-)
-
-if (anyNA(src_files)) {
-  missing <- variants[is.na(src_files)]
-  avail <- path_file(dir_ls(src_dir, type = "file", recurse = FALSE))
-  stop(
-    "Missing ROC PNG(s) for: ",
-    paste(missing, collapse = ", "),
-    "\nLooked in: ", src_dir,
-    "\nAvailable files:\n", paste0("  - ", avail, collapse = "\n")
-  )
-}
-
-stable_files <- file.path(dst_dir, paste0("ROC_", variants, ".png"))
-file_copy(src_files, stable_files, overwrite = TRUE)
-
-# from the perspective of reports/, these are now "figures/..."
-rel <- file.path("figures", paste0("ROC_", variants, ".png"))
-stopifnot(all(file.exists(here("reports", rel))))
-knitr::include_graphics(rel)
 
 ```
 

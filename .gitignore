@@ -155,3 +155,28 @@ reports/*.pdf
 # Local helper scripts (not required to knit the report)
 Analysis/make_results_from_manifest.R
 Analysis/utils_latest_artifacts.R
+
+# build artefacts
+reports/figures/
+!reports/figures/.gitkeep
+reports/figures_roc/
+!reports/figures_roc/.gitkeep
+
+# general outputs (already reproducible)
+outputs/**
+!outputs/tables/*.csv
+!outputs/tables/*.rds
+
+# Generated figures
+reports/figures/*.png
+!reports/figures/hydro.png      
+reports/figures/.gitkeep
+
+# ROC figures: only keep PNGs (unignore dir, then whitelist files)
+!reports/figures_roc/
+reports/figures_roc/*
+!reports/figures_roc/*.png
+!reports/figures_roc/.gitkeep
+
+figures/roc_*_*.png
+
