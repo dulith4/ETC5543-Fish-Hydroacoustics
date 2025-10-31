@@ -32,7 +32,6 @@ keywords: [hydroacoustics, fish acoustics, frequency response curve, H2O, machin
 resources:
   - figures/**
   - outputs/figures_report/**
-  - reports/figures_roc/**
 latex-auto-install: true
 ---
 
@@ -354,13 +353,7 @@ ggplot(scores, aes(PC1, PC2, colour = species)) +
 ```
 
 
-The PCA of the median frequency response curves (FRCs) shows clear separation between Lake Trout (LT) and Smallmouth Bass (SMB) along the first two principal components (PC1 and PC2).  
-PC1 explains about 61% of total variance and captures the overall amplitude differences in backscatter strength, while PC2 (21%) reflects finer variations in frequency-dependent patterns.  
-The clustering of points by species indicates that most discriminatory information is captured by the leading components, confirming that frequency-only data already contain strong species-level signals before any supervised modelling.
-
-
-
-
+Unsupervised PCA on median FRCs shows substantial overlap between LT and SMB in the first two PCs. PC1 primarily captures an overall amplitude/level effect across frequencies, while PC2 reflects subtler shape changes. Because PCA ignores class labels, clear separation isn’t guaranteed; the overlap here motivates alternative summaries and class-aware projections
 
 
 
@@ -369,6 +362,82 @@ The clustering of points by species indicates that most discriminatory informati
 
  
 To illustrate how summarise noisy ping-level echoes into stable per-fish curves, Figure @fig-frc-quantiles shows **one representative fish from each species** (chosen with similar numbers of pings). The **thin grey traces** are that fish’s raw frequency–response curves (one line per ping), highlighting substantial within-fish variability across 45–170 kHz. Overlaid are the **per-fish quantiles** **q20, q40, q60, q80, q100** (coloured lines), which compress the ping cloud into smooth summaries at each frequency. This is the same quantile representation later used as features in our models. Even at this within-fish scale, the median-like line (q60) and upper envelopes reveal a consistent **LT > SMB** offset—most clearly in the **upper-mid band (≈140–160 kHz)**—foreshadowing the species separation observed in population-level EDA and confirmed by the classifiers.
+
+
+
+```{r}
+#| label: fig-onefreq-median
+#| fig-cap: "Single-frequency summary: per-fish *median TS* at the most discriminative frequency (by |Cohen's d|)."
+#| fig-width: 6.2
+#| fig-height: 4.6
+
+
+# 1) Compute per-fish medians at every frequency
+freq_cols <- names(fish_raw)[stringr::str_detect(names(fish_raw), "^F\\d+(?:\\.\\d+)?$")]
+
+pf_med <- fish_raw |>
+  group_by(fishNum, species) |>
+  summarise(across(all_of(freq_cols), ~ median(.x, na.rm = TRUE)), .groups = "drop")
+
+# 2) Effect size function and per-frequency effect sizes
+effect_size <- function(x, g) {
+  x1 <- x[g == levels(g)[1]]; x2 <- x[g == levels(g)[2]]
+  n1 <- sum(!is.na(x1)); n2 <- sum(!is.na(x2))
+  m1 <- mean(x1, na.rm=TRUE); m2 <- mean(x2, na.rm=TRUE)
+  s1 <- stats::var(x1, na.rm=TRUE); s2 <- stats::var(x2, na.rm=TRUE)
+  sp <- sqrt(((n1-1)*s1 + (n2-1)*s2) / (n1+n2-2))
+  (m1 - m2) / sp
+}
+
+eff <- tibble(
+  col = freq_cols,
+  freq_khz = parse_number(freq_cols),
+  d = purrr::map_dbl(freq_cols, ~ effect_size(pf_med[[.x]], pf_med$species))
+) |>
+  arrange(desc(abs(d)))
+
+best_col  <- eff$col[1]
+best_freq <- eff$freq_khz[1]
+best_d    <- eff$d[1]
+
+# 3) Plot per-fish medians at the best frequency
+plot_df <- pf_med |>
+  select(fishNum, species, !!best_col) |>
+  rename(TS = !!best_col)
+
+has_beeswarm <- requireNamespace("ggbeeswarm", quietly = TRUE)
+
+p <- ggplot(plot_df, aes(species, TS, fill = species)) +
+  geom_violin(alpha = 0.25, colour = NA) +
+  geom_boxplot(width = 0.2, outlier.shape = NA)
+
+if (has_beeswarm) {
+  p <- p + ggbeeswarm::geom_quasirandom(alpha = 0.5, size = 1.4)
+} else {
+  p <- p + geom_jitter(width = 0.15, alpha = 0.5, size = 1.4)
+}
+
+p +
+  labs(
+    x = NULL,
+    y = sprintf("Median TS at %.1f kHz (dB)", best_freq),
+    subtitle = sprintf("Cohen's d (LT − SMB) = %.2f", best_d)
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(legend.position = "none")
+
+```
+
+
+
+
+At approximately **87.5 kHz**, where the difference between species is strongest (Cohen’s *d* ≈ 0.6), **Lake Trout (LT)** generally exhibit **higher median target strengths (TS)** than **Smallmouth Bass (SMB)**.
+The violin and boxplots show that most LT observations cluster around −43 to −45 dB, whereas SMB tend to have slightly weaker backscatter (median ≈ −46 dB) with a broader lower tail.
+
+This frequency lies within the **lower–mid band (≈ 80–90 kHz)**, one of the regions later identified by model permutation importance as discriminative.
+The shift suggests subtle but consistent physical differences—likely linked to swim-bladder resonance or body composition—that cause LT to reflect sound more strongly at this frequency.
+Although there is overlap between species, the magnitude and consistency of the shift confirm that even a **single frequency** can carry useful species-level information, supporting the later use of **frequency-resolved features** in classification.
+
 
 
 
@@ -964,22 +1033,63 @@ All AutoML models exhibit strong separation with steep true-positive rises (AUC 
 
 Among them, median_allfreq approaches perfect discrimination (AUC = 1.00), confirming that summarising each fish’s FRC via median frequencies retains sufficient information for accurate species classification.
 
+
+
 ```{r}
-#| label: fig-rocs
+#| label: fig-rocs-inline
 #| fig-cap: "ROC curves for representative AutoML models (TEST split)."
-#| echo: false
+#| warning: false
+#| message: false
 
-knitr::include_graphics(c(
-  "figures_roc/ROC_original_blocks.png",
-  "figures_roc/ROC_quintiles_allfreq.png",
-  "figures_roc/ROC_quintiles_feats.png",
-  "figures_roc/ROC_median_allfreq.png"
-))
+suppressPackageStartupMessages({
+  library(tidyverse); library(here); library(glue); library(pROC)
+  library(patchwork)  
+})
 
+# helpers you already use elsewhere in the repo
+source(here("Analysis","utils_latest_artifacts.R"))
+source(here("Analysis","make_results_from_manifest.R"))  # provides prob_col(), etc.
+
+variants <- c("original_blocks","quintiles_allfreq","quintiles_feats","median_allfreq")
+mf <- list_latest_artifacts(variants, write_manifest = FALSE)
+
+read_preds <- function(path){
+  x <- try(readr::read_rds(path), silent = TRUE)
+  if (inherits(x, "try-error")) x <- readr::read_csv(path, show_col_types = FALSE)
+  x
+}
+
+plot_one <- function(variant, positive = "SMB"){
+  path <- mf %>% filter(variant == !!variant) %>% pull(preds_test) %>% .[[1]]
+  stopifnot(!is.na(path), file.exists(path))
+  dat  <- read_preds(path)
+  pcol <- prob_col(dat, positive = positive)
+  stopifnot(pcol %in% names(dat), "species" %in% names(dat))
+
+  y <- factor(dat$species, levels = c("LT","SMB"))
+  p <- as.numeric(dat[[pcol]])
+
+  roc_obj  <- pROC::roc(y, p, levels = c("LT","SMB"), direction = "<", quiet = TRUE)
+  auc_val  <- as.numeric(pROC::auc(roc_obj))
+
+  pROC::ggroc(roc_obj, legacy.axes = TRUE, size = 1) +
+    geom_abline(slope = 1, intercept = 0, linetype = 2) +
+    labs(
+      title    = glue("{toupper(variant)}"),
+      subtitle = glue("AUC (TEST) = {round(auc_val, 3)}"),
+      x = "False Positive Rate", y = "True Positive Rate"
+    ) +
+    theme_minimal(base_size = 12)
+}
+
+p1 <- plot_one("original_blocks")
+p2 <- plot_one("quintiles_allfreq")
+p3 <- plot_one("quintiles_feats")
+p4 <- plot_one("median_allfreq")
+
+(p1 | p2) / (p3 | p4)
 
 ```
-
-*(ROCs copied into `reports/figures/` as `ROC_original_blocks.png`, `ROC_quintiles_allfreq.png`, `ROC_quintiles_feats.png`, `ROC_median_allfreq.png`.)*
 
 
 
@@ -1061,9 +1171,64 @@ Both species were detected at similar depths, but **Lake Trout (LT)** tended to 
 The two distributions overlap strongly, so **depth alone cannot explain the strong frequency-based classification performance**. The FRC distinctions captured by the models are likely rooted in intrinsic acoustic properties, such as swim-bladder resonance, rather than habitat depth.
 
 
-#  Discussion
 
-#  Conclusion & Future Work
+# Discussion
+
+## Interpretation of the main findings
+
+Our results show that **frequency-only** echoes between **45–170 kHz** contain enough species-specific signal to separate **Lake Trout (LT)** and **Smallmouth Bass (SMB)** with high reliability. The strongest models (particularly **median_allfreq** and **quintiles_allfreq**) achieved **AUC ≈ 0.95–1.00** on a **held-out test split grouped by fish**, clearly surpassing the **RNN baseline** (AUC ≈ 0.84). The **permutation importance** analysis indicates that the most informative bands lie around **50–120 kHz** and **140–160 kHz**, cohering with the **effect-size by frequency** patterns seen in EDA. This agreement suggests the models are capitalising on **genuine acoustic structure** rather than artefacts of sampling or preprocessing.
+
+## Why frequency-only works here
+
+Hydroacoustic target strength is partly governed by **swim bladder resonance** and **body composition**, both of which vary systematically across species. Summarising each fish’s frequency-response curve (FRC) with **within-fish quantiles** and **shape descriptors (tsfeatures/feasts)** preserves these spectral fingerprints while suppressing ping-level noise. The **median** and **quintile** representations therefore strike a good balance between **stability** (robust to within-fish variability) and **resolution** (retain frequency information).
+
+## Representation study: what mattered
+
+* **Keep the frequencies when you can**: “allfreq” variants (retaining `F*`) consistently beat “features-only” versions, indicating that raw frequency resolution holds critical signal beyond generic shape descriptors.
+* **Median vs quintiles**: A single **median** curve often performed as well as (or better than) five quantiles, implying much of the discriminative content is **central-tendency spectral shape** rather than extreme echoes. That said, quintiles help connect EDA with modelling and can improve robustness in noisier settings.
+* **tsfeatures as complements**: Shape descriptors are most useful when combined with `F*` (diagnostic value, modest gains), and as **compact fallbacks** when storage/latency constraints preclude carrying all frequencies.
+
+## Thresholding and the policy window
+
+Raw validation-selected thresholds sometimes drifted to extremes (near 0 or 1). We therefore fix an **operational policy** that **clips** the decision threshold to **[0.40, 0.70]**. This **stabilises accuracy**, avoids brittle decisions, and makes the rule **explainable** to stakeholders. Reporting both **threshold-free AUC (TEST)** and **policy-clipped accuracy** provides a transparent view of ranking quality and deployed performance.
+
+## Robustness and threats to validity
+
+* **Leakage control**: All splits and folds are **grouped by `fishNum`**; quintile rows for a fish always move together. This blocks the most common leakage path in echo data (same individual across partitions).
+* **Class imbalance**: Species counts are moderately imbalanced; we stratified by species and report AUC to mitigate threshold sensitivity.
+* **Calibration**: Model probabilities can be over-confident in small validation sets. The policy clamp limits harm, but applying **post-hoc calibration** (e.g., Platt/Isotonic on CV folds) is a sensible next step.
+* **Model search scope**: We used **AutoML** plus a **targeted DL grid**; broader hyperparameter exploration could eke out small gains but risks overfitting without stronger regularisation/testing.
+* **Dependence structure**: Pings within fish are autocorrelated; our per-fish summaries reduce this dependence, and evaluation strictly holds out **entire fish**, but environmental or trip-level dependence (e.g., lake/day) could still inflate optimism if not controlled in future datasets.
+* **Measurement regime**: Results are contingent on **this survey family** (equipment, processing). Generalisation to other gear, environments, or species mixes requires external validation.
+
+## What did *not* explain performance
+
+**Depth distributions** differ slightly between species but overlap heavily. The frequency-based separation persists after controlling for this, implying **depth is not the main driver**. Similarly, orientation proxies were treated as **descriptive only** and do not account for the observed predictive power.
+
+## Practical deployment considerations
+
+* **Model artefacts**: The pipeline writes reproducible artefacts (leaderboards, thresholds, ROC curves, permutation importance). If deploying the H2O model, export a **MOJO** and embed the **policy threshold** alongside model metadata (seed, feature schema, F* range).
+* **Feature contract**: Lock the **exact frequency bins** (labels/order of `F45..F170`) and any preprocessing (centering/scaling) inside the scoring code.
+* **Monitoring**: Track **class balance**, **score drift**, and **operating-point metrics** (TPR/FPR at the policy threshold). Add **canaries** (known exemplars) for field checks.
+
+## Limitations
+
+1. **Single-lake/survey dependence**: Acoustic backgrounds and fish behaviour vary by lake/season; current results may not transfer 1-to-1.
+2. **Two-class framing**: We considered only LT vs SMB; multi-species settings will require hierarchical or one-vs-rest strategies.
+3. **Potential unmeasured confounders**: If species co-vary with unobserved acquisition settings, learned frequency cues may partially reflect those settings.
+4. **Probability calibration**: We did not perform dedicated calibration; reporting AUC + policy accuracy partly offsets this but calibrated probabilities are preferable for cost-sensitive use.
+
+## Comparison to the sequence baseline (RNN)
+
+The **RNN** trained on raw pings underperformed the **fish-level** representations. Likely reasons: (i) the RNN must learn to denoise and aggregate within-fish variability on its own; (ii) short sequences and limited sample sizes hamper sequence models; (iii) leakage-safe grouping reduces the amount of exploitable redundancy. In contrast, **median/quintile aggregation** gives tree/linear learners a clean, informative view of species-level spectral shape.
+
+## Implications
+
+The combination of **simple, robust summaries** and **diverse learners** is a practical recipe for hydroacoustic classification. Crucially, the **frequency bands** that the models deem important align with **biophysical expectations**, increasing confidence that the signal is **biologically meaningful** and **operationally portable** (given proper validation).
+
+
+
+# Conclusion & Future Work
 
 # References
 

@@ -180,3 +180,6 @@ reports/figures_roc/*
 
 figures/roc_*_*.png
 
+roc_assets/
+reports/figures_roc/
+reports/figures_roc2/
