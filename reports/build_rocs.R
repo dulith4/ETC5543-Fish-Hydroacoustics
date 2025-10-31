@@ -1,66 +1,69 @@
 # reports/build_rocs.R
-# Build ROC curves for representative AutoML models and save PNGs
-# Run this manually (not during knitting)
-
 suppressPackageStartupMessages({
-  library(tidyverse)
-  library(here)
-  library(fs)
-  library(glue)
-  library(readr)
+  library(tidyverse); library(here); library(glue); library(pROC)
 })
 
-# --- helper functions --------------------------------------------------------
-auc_from_probs <- function(truth, prob, positive = "SMB") {
-  y <- as.integer(truth == positive)
-  if (sum(y) == 0L || sum(1 - y) == 0L) return(NA_real_)
-  o <- order(prob, decreasing = TRUE)
-  tp <- cumsum(y[o]); fp <- cumsum(1 - y[o])
-  tpr <- tp / sum(y); fpr <- fp / sum(1 - y)
-  sum(diff(c(0, fpr)) * (head(c(0, tpr), -1) + tail(c(0, tpr), -1)) / 2)
-}
+source(here("Analysis","utils_latest_artifacts.R"))
+source(here("Analysis","make_results_from_manifest.R"))  # prob_col(), auc_from_probs()
 
-prob_col <- function(df, positive = "SMB") {
-  n <- names(df)
-  cand <- c(positive, paste0("prob_", positive), "p1", "TRUE", "1")
-  hit <- cand[cand %in% n]
-  if (length(hit)) return(hit[1])
-  pcols <- grep("^(p\\d+|prob_.*|LT|SMB)$", n, value = TRUE)
-  pcols <- setdiff(pcols, c("predict", "pred_label", "species"))
-  if (length(pcols)) return(pcols[1])
-  stop("No probability column for class '", positive, "'.")
-}
-
-# --- locate your TEST prediction files ---------------------------------------
-source(here("Analysis", "utils_latest_artifacts.R"))
 variants <- c("original_blocks","quintiles_allfreq","quintiles_feats","median_allfreq")
+
+# NEW isolated folder
+out_dir <- here("reports","figures_roc2")
+dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
+
+# Names EXACTLY as used in the QMD (mixed case)
+name_map <- c(
+  original_blocks   = "ROC_original_blocks.png",
+  quintiles_allfreq = "ROC_quintiles_allfreq.png",
+  quintiles_feats   = "ROC_quintiles_feats.png",
+  median_allfreq    = "ROC_median_allfreq.png"
+)
+
 mf <- list_latest_artifacts(variants, write_manifest = FALSE)
 
-# --- build and save ROC plots -------------------------------------------------
-dir_create(here("reports","figures_roc"))
-
-for (i in seq_len(nrow(mf))) {
-  v  <- mf$variant[i]
-  pt <- if (grepl("\\.rds$", mf$preds_test[i], ignore.case = TRUE))
-    read_rds(mf$preds_test[i]) else read_csv(mf$preds_test[i], show_col_types = FALSE)
-  pc <- prob_col(pt, positive = "SMB")
-  a  <- auc_from_probs(pt$species, pt[[pc]], positive = "SMB")
-  
-  o <- order(pt[[pc]], decreasing = TRUE)
-  y <- as.integer(pt$species == "SMB")[o]
-  tpr <- cumsum(y) / sum(y); fpr <- cumsum(1 - y) / sum(1 - y)
-  p <- ggplot(tibble(fpr, tpr), aes(fpr, tpr)) +
-    geom_line(linewidth = 1) +
-    geom_abline(slope = 1, intercept = 0, linetype = 2, linewidth = 0.5, alpha = 0.6) +
-    coord_equal(xlim = c(0,1), ylim = c(0,1), expand = FALSE) +
-    labs(
-      title = glue("ROC — {toupper(v)}"),
-      subtitle = glue("AUC (TEST) = {format(round(a, 3), nsmall = 3)}"),
-      x = "False Positive Rate", y = "True Positive Rate"
-    ) +
-    theme_minimal(base_size = 12)
-  
-  ggsave(here("reports","figures_roc", glue("ROC_{v}.png")), p, width = 6, height = 5, dpi = 150)
+read_preds <- function(path){
+  x <- try(readr::read_rds(path), silent = TRUE)
+  if (inherits(x, "try-error")) readr::read_csv(path, show_col_types = FALSE) else x
 }
 
-cat("✅ ROC PNGs saved to reports/figures_roc/\n")
+plot_one <- function(variant, path, positive = "SMB"){
+  stopifnot(!is.na(path), file.exists(path))
+  dat  <- read_preds(path)
+  pcol <- prob_col(dat, positive = positive)
+  stopifnot(pcol %in% names(dat), "species" %in% names(dat))
+  
+  y <- factor(dat$species, levels = c("LT","SMB"))
+  p <- as.numeric(dat[[pcol]])
+  
+  auc_tbl  <- auc_from_probs(y, p, positive = positive)
+  roc_obj  <- pROC::roc(y, p, levels = c("LT","SMB"), direction = "<", quiet = TRUE)
+  auc_pROC <- as.numeric(pROC::auc(roc_obj))
+  
+  if (is.na(auc_tbl) || abs(auc_tbl - auc_pROC) > 0.002)
+    stop(glue("AUC mismatch for {variant}: table={round(auc_tbl,3)} vs pROC={round(auc_pROC,3)} (col={pcol})"))
+  
+  outfile <- file.path(out_dir, name_map[[variant]])
+  png(outfile, width = 720, height = 600, res = 96)
+  plot(roc_obj,
+       main = glue("ROC — {toupper(variant)}\nAUC (TEST) = {round(auc_pROC, 3)}"),
+       legacy.axes = TRUE, xlab = "False Positive Rate", ylab = "True Positive Rate", lwd = 3)
+  abline(0, 1, lty = 2)
+  dev.off()
+  
+  tibble(Variant = variant, OutFile = outfile, AUC = round(auc_pROC, 3))
+}
+
+# Clean target dir then build
+unlink(file.path(out_dir, "ROC_*.png"))
+out <- purrr::map_dfr(variants, function(v){
+  path <- mf %>% dplyr::filter(variant == v) %>% dplyr::pull(preds_test) %>% .[[1]]
+  if (is.na(path) || !file.exists(path))
+    stop(glue("Missing TEST predictions for {v}. Expected in outputs/tables/preds_{v}_test_*.{rds,csv}"))
+  message("== ", v, " ==> ", path)
+  plot_one(v, path)
+})
+
+readr::write_csv(out, file.path(out_dir, "roc_auc_check.csv"))
+message("Wrote: ", normalizePath(out_dir, winslash = "/"))
+print(out, n = nrow(out))
