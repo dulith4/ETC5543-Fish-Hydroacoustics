@@ -93,7 +93,7 @@ suppressPackageStartupMessages({
   library(kableExtra)
   library(htmltools)
   library(gt)
-  
+  library(ggbeeswarm)
   
 
   
