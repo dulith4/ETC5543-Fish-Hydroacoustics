@@ -127,7 +127,10 @@ The dataset is provided as an RDS file (`TSresponse_clean.RDS`, tracked via Git 
 
 - `Region_name` — encounter identifier within a fish.
 
-The block `F45..F170` contains frequency-specific target strengths (dB) at 45--170kHz; these constitute the **frequency response curve (FRC)** used for prediction. Additional variables describe geometry/behaviour (e.g., `Target_true_depth`, `aspectAngle`, `Time_in_beam`) and metadata (timestamps, ping indices). A concise glossary appears in Appendix A.
+The block `F45..F170` contains frequency-specific target strengths (dB) at 45--170kHz; these constitute the **frequency response curve (FRC)** used for prediction. Additional variables describe geometry/behaviour (e.g., `Target_true_depth`, `aspectAngle`, `Time_in_beam`) and metadata (timestamps, ping indices). 
+
+Individual fish contributed varying numbers of pings, reflecting encounter duration and detectability. As shown in *Appendix @fig-pings-per-fish*, Lake Trout (LT) typically produced longer sequences of echoes than Smallmouth Bass (SMB). This motivated our choice to aggregate pings per fish before modelling rather than train on raw ping-level data.
+
 
 ## **Scope decisions**
 
@@ -192,6 +195,8 @@ This protocol mirrors the “no individual repeated across splits” principle a
 - **Class label**. `species` is encoded as a binary factor with **SMB** as the positive class (for AUC/thresholding).
 
 - **Artifacts**. Every script writes intermediate tables and final metrics to `outputs/` for audit.
+
+- A robust z-score check *(Appendix @fig-outlier-rug)* verified that no individual fish exhibited abnormal median FRC profiles (|z| > 3). All fish were therefore retained for downstream modelling.
 
 ## **Reproducibility**
 
@@ -439,7 +444,7 @@ The shift suggests subtle but consistent physical differences—likely linked to
 Although there is overlap between species, the magnitude and consistency of the shift confirm that even a **single frequency** can carry useful species-level information, supporting the later use of **frequency-resolved features** in classification.
 
 
-
+## **Frequency Response Curves (FRC) with quantile summaries for representative individuals**
 
 
 ```{r}
@@ -536,8 +541,16 @@ ggplot() +
 ```
 
 
+Example of raw **frequency response curves (FRCs)** for one representative **Lake Trout (LT)** and one **Smallmouth Bass (SMB)**.
+Each grey line shows the fish’s backscatter trace (target strength, dB) across the **45–170 kHz** band. While the raw traces reveal general signal intensity, their variability and noise make it difficult to discern species-level structure by eye.
+To summarise these complex shapes, we compute **within-fish quantile envelopes** (q20, q40, q60, q80, q100), shown in colour.
+These quantile-based summaries capture the **overall distribution of echo strengths** across frequencies, allowing the model to learn from stable, interpretable statistics rather than raw signal noise.
+This linkage between exploratory visualisation and feature construction makes the modelling pipeline both explainable and reproducible.
 
-## Mean frequency response by species (by quantile)
+
+
+
+## **Mean frequency response by species (by quantile)**
 
 @fig-frc-species contrasts the species’ frequency–response curves at five within-fish quantiles (q20, q40, q60, q80, q100). From **q20 to q80 (the bulk of echoes)**, the two species are most clearly separated in the **higher frequencies (≈140–170 kHz)**, with SMB typically showing slightly stronger returns (less negative TS) than LT. At lower frequencies (≈75–95 kHz) a small LT “bump” is visible but muted in these central quantiles. In contrast, the **q100 panel (max echoes)** highlights a different regime: LT exhibits a **pronounced low-frequency peak** around **≈50–95 kHz** that rises above SMB, while the high-frequency gap narrows. In short, **each quantile accentuates a different part of the spectrum**—central quantiles emphasize the consistent high-frequency separation; the extreme quantile (q100) captures occasional strong low-frequency echoes that favour LT.
 
@@ -622,7 +635,7 @@ ggplot(summ_q, aes(frequency, mean_TS, colour = species, fill = species)) +
 
 
 
-## **Effect size by frequency**
+## **Effect size by frequency**  {#sec-effectsize}
 
 @fig-effectsize shows Cohen’s d values comparing Lake Trout (LT) and Smallmouth Bass (SMB) at each frequency between 45–170 kHz.
 Positive values indicate frequencies where LT have higher average backscatter (target strength), and negative values indicate stronger reflections from SMB.
@@ -630,6 +643,10 @@ Positive values indicate frequencies where LT have higher average backscatter (t
 The plot reveals **moderate effect sizes** (0.2–0.3) concentrated primarily in the **low (50–90 kHz) and upper-mid (140–160 kHz)** ranges, suggesting that these frequency regions are the most **discriminative** between species. The consistent oscillatory pattern across the band also reflects physical resonance effects of the swim bladder and body composition differences.
 
 Later in **Section 5.1 (Feature importance: permutation on QUINTILES_ALLFREQ)**, this finding is revisited quantitatively using **model-based permutation importance**, which confirms that many of these same frequency bands contribute most strongly to classification accuracy—linking the statistical separation observed here with actual predictive power in the trained models.
+
+Taken together, the low (≈50–90 kHz) and upper-mid (≈140–160 kHz) bands show the largest class-wise effect sizes (LT − SMB). Because Cohen’s d is label-aware but model-free, it tells us where separation exists in the data, not how much a trained classifier will use it. In Section 7.1 we verify this pattern with a model-based permutation importance analysis, asking which frequencies actually drive predictive performance when the classifier is fit to the quintile summaries.”
+
+Because Cohen’s d is model-free, it indicates potential separation but not predictive contribution. In @sec-varimp we confirm that the same 50–90 and 140–160 kHz bands identified in @sec-effectsize are also the most important to the trained model’s AUC
 
 ```{r}
 #| label: fig-effectsize
@@ -673,6 +690,8 @@ theme_minimal(base_size = 13)
 #  Feature Engineering
 
 The frequency–response curve (FRC; 45–170 kHz) for each fish was transformed into stable, **leakage-safe predictors** that preserve spectral shape while reducing noise. Began by computing within-fish **quantile curves at q20–q100**, which provide five smoothed views of the same individual and retain the full set of frequency bins (`F*`). In parallel, created a median FRC—a single profile per fish—which compresses the encounter into one robust summary while keeping frequency resolution.
+
+Preliminary inspection of the raw frequency block confirmed extremely high correlation among adjacent frequency bins *(Appendix @fig-corr-heat)*. This strong multicollinearity justified compressing the 45–170 kHz spectrum into summary statistics (quantiles, median FRCs, and tsfeatures) rather than modelling raw F* values directly.
 
 Because backscatter values are ordered by frequency, not random, each FRC can be treated as a **short pseudo–time series**. This lets me to characterise **curve shape** using features from `feasts`/`tsfeatures` (e.g., ACF/PACF summaries, spectral measures, entropy, stability). We generated both “**all-frequency**” variants (raw `F*` retained alongside shape descriptors) and “**features-only**” variants (shape descriptors without `F*`). Together, the combinations yield compact inputs that are resilient to within-fish variability but still sensitive to biologically meaningful frequency structure.
 
@@ -839,7 +858,11 @@ if (file.exists(src_varimp)) {
 ```
 
 
-## **Feature importance: permutation on QUINTILES_ALLFREQ**
+## **Feature importance: permutation on QUINTILES_ALLFREQ**  {#sec-varimp}
+
+As foreshadowed in Section 4.4, the EDA suggested strongest separation in the 50–90 and 140–160 kHz bands. The permutation importance below quantifies this from a trained classifier’s perspective: shuffling each frequency in turn and measuring the AUC drop. The largest drops occur in the same bands, indicating that the model’s predictive power is indeed concentrated where the Cohen’s d analysis pointed.”
+
+As foreshadowed in @sec-effectsize, permutation importance shows the largest AUC losses when frequencies in the 50–90 and 140–160 kHz regions are permuted, confirming that those bands drive discrimination in the fitted QUINTILES_ALLFREQ model
 
 Permutation importance analysis quantifies how much each frequency band contributes to the classifier’s predictive power. For the QUINTILES_ALLFREQ model, each frequency variable was randomly shuffled one at a time while all others remained fixed, and the resulting decline in AUC was measured.
 
@@ -1229,6 +1252,46 @@ The combination of **simple, robust summaries** and **diverse learners** is a pr
 
 
 # Conclusion & Future Work
+
+## Conclusion
+
+Using **frequency-only** wideband echoes (45–170 kHz) and **leakage-aware** evaluation (grouped by `fishNum`), we can reliably separate **Lake Trout (LT)** from **Smallmouth Bass (SMB)**. The strongest fish-level representations—**`median_allfreq`** and **`quintiles_allfreq`**—achieved **high out-of-sample discrimination** (AUC ≈ 0.95–1.00) and strong test accuracies, clearly outperforming the reproduced RNN baseline. Exploratory effect sizes and model permutation importance agree that the **50–90 kHz** and **140–160 kHz** bands carry most of the signal, supporting a biologically plausible mechanism (swim-bladder/structure driven resonance). For deployment, we report threshold-free AUC and adopt a simple **policy threshold window** (clip to **[0.40, 0.70]**) to stabilise decisions without peeking at the test set.
+
+## Future Work (completed within this project)
+
+This project formally **concludes here**. As our final “future work” probes, we implemented three targeted extensions—each scripted under the **`Analysis/`** folder—to test whether additional complexity improves performance. These were carried out and reported; no further work will be pursued beyond what is summarized below.
+
+1. **Out-of-Fold (OOF) threshold tuning** — `Analysis/07_oof_threshold_tuning.R`
+   Learned thresholds from **train-only CV** predictions, then applied the policy clip. Effects were **variant-dependent**:
+
+   * `median_allfreq`: improved **TEST acc** from **0.917 @ 0.50** to **1.000 @ OOF 0.40**.
+   * `quintiles_allfreq`: **0.867 @ 0.50** to **0.783 @ OOF 0.4265** (drop).
+   * `quintiles_feats`: unchanged (**0.633**; clipped to 0.40).
+   * `median_feats`: **0.750** to **0.667** (drop; clipped to 0.70).
+     **Takeaway:** OOF tuning can help when probabilities are well-calibrated (notably `median_allfreq` here), but it can also hurt—supporting our use of a **policy window**.
+
+2. **Focused Deep-Learning grids** — `Analysis/08_grid_dl_tsfeatures.R`
+   We ran wider DL hyperparameter searches (depth/width, dropout, optimisers) under grouped CV. Best **TEST accuracy @ policy** by variant:
+
+   * `quintiles_allfreq` **0.743**, `quintiles_feats` **0.757**, `median_allfreq` **0.857**, `median_feats` **0.929**.
+     **Takeaway:** Competitive, but **not consistently better** than the strongest AutoML models once FRCs are summarised at the fish level.
+
+3. **“tsfeatures plus” variants (richer descriptors + train-only top-K F*)**
+
+   * Feature builders: `Analysis/04e_tsfeatures_plus.R`
+   * Train-only frequency selectors (no leakage): `Analysis/04c_freqselectors.R`
+   * AutoML runner: `Analysis/05b_automl_tsfeatures_plus.R`
+     Representative **TEST** outcomes (AUC; Acc @ clipped):
+   * `quintiles_allfreq_plus`: **0.954; 0.783**
+   * `quintiles_feats_plus`: **0.944; 0.800**
+   * `median_allfreq_plus`: **1.000; 0.750**
+   * `median_feats_plus`: **0.943; 0.583**
+     **Takeaway:** Useful for **diagnostics/compactness**, but **no consistent lift** beyond already-strong all-frequency representations.
+
+### Final remark
+
+The central result stands: **simple, robust fish-level summaries of the FRC combined with leakage-aware training already deliver high, reproducible performance**. Our three extensions—OOF thresholding, DL grids, and “plus” features—clarify when extra complexity helps, but they are **not required** to achieve strong accuracy on this dataset. This completes the project.
+
 
 # References
 
