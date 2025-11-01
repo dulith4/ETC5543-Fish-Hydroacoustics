@@ -7,6 +7,11 @@ author:
 supervisor: "Natalia Da Silva"
 repository: "https://github.com/dulith4/ETC5543-Fish-Hydroacoustics"
 bibliography: references.bib
+cite-method: biblatex
+biblio-style: authoryear-comp
+reference-section-title: "References"
+nocite: |
+  @R_core_2025 @h2o_docs_2025 @feasts_pkg @tsfeatures_pkg @tidyverse_pkg @ggplot2_pkg
 execute-dir: project          
 
 format:
@@ -33,6 +38,7 @@ resources:
   - figures/**
   - outputs/figures_report/**
 latex-auto-install: true
+
 ---
 
 ```{r}
@@ -47,9 +53,9 @@ cat("Knit root.dir =", getwd(), "\n")
 
 # Abstract
 
-Wideband hydroacoustics enables non-invasive monitoring of fish populations, but reliable species-level identification remains challenging when visual confirmation is impossible. This project investigates whether frequency-only acoustic signals (45-170 kHz) can accurately distinguish Lake Trout (LT) and Smallmouth Bass (SMB). Building on earlier work that used a recurrent neural network (RNN) for the same dataset, we first replicate that baseline and then extend the analysis using a broader, leakage-safe machine-learning framework.
+Wideband hydroacoustics enables non-invasive monitoring of fish populations, but reliable species-level identification remains challenging when visual confirmation is impossible. This project investigates whether frequency-only acoustic signals (45-170 kHz) can accurately distinguish Lake Trout (LT) and Smallmouth Bass (SMB). Building on earlier work that used a recurrent neural network (RNN) for the same dataset [@hydro_internal_context_2024], we first replicate that baseline and then extend the analysis using a broader, leakage-safe machine-learning framework.
 
-We summarise each fish’s frequency response curve (FRC) using quantiles and tsfeatures time-series descriptors, then apply H2O AutoML across multiple model families under grouped validation by fish identifier. The best model achieves strong out-of-sample performance (AUC almost 0.95; accuracy almost 0.90) with the upper-mid frequency band (140–160 kHz) contributing most to discrimination. Targeted tuning—via out-of-fold threshold optimisation, deep-learning grid search, and frequency-selector features—further improves test accuracy and interpretability.
+We summarise each fish’s frequency response curve (FRC) using quantiles and tsfeatures time-series descriptors, then apply H2O AutoML [@h2o_docs_2025] across multiple model families under grouped validation by fish identifier. The best model achieves strong out-of-sample performance (AUC almost 0.95; accuracy almost 0.90) with the upper-mid frequency band (140–160 kHz) contributing most to discrimination. Targeted tuning—via out-of-fold threshold optimisation, deep-learning grid search, and frequency-selector features—further improves test accuracy and interpretability.
 
 Results demonstrate that wideband frequency-only signatures can separate species with high reliability, providing a reproducible and operationally deployable workflow for acoustic classification. All analyses are fully scripted in R using `renv` for dependency control and Git LFS for large data management.
 
@@ -57,12 +63,12 @@ Results demonstrate that wideband frequency-only signatures can separate species
 
 Hydroacoustic surveys provide a non-destructive way to monitor fish communities, but reliable species-level identification from sonar remains difficult when visual confirmation is impractical. Wideband transducers measure target strength (TS) across many frequencies, giving each fish an acoustic “fingerprint” or frequency response curve (FRC). If these frequency-only signals can separate species accurately, managers can obtain species-resolved indices without netting or tagging.
 
-Prior work (baseline). A related study on the same survey family applied several neural architectures—including fully-connected, convolutional, and recurrent neural networks (RNN/LSTM)—to size-standardised backscatter for species classification [@hydro_nn_internal_2025]. To ensure a fair comparison, we first replicate the RNN as a baseline (03a_rnn_reproduction.R) and also run AutoML on the same input representation (03_classification_original.R) to establish non-NN references. We then extend the methodology substantially.
+Prior work (baseline). A related study on the same survey family applied several neural architectures—including fully-connected, convolutional, and recurrent neural networks (RNN/LSTM)—to size-standardised backscatter for species classification [@hydro_internal_context_2024]. To ensure a fair comparison, we first replicate the RNN as a baseline (03a_rnn_reproduction.R) and also run AutoML on the same input representation (03_classification_original.R) to establish non-NN references. We then extend the methodology substantially.
 
 ## **What is fish hydroacoustics?**
 
 Fish hydroacoustics is the study of how sound waves interact with fish underwater.
-A transducer emits sound pulses (pings) and records the returning echoes—how strongly a fish reflects sound depends on its body shape, tissue composition, and especially the gas-filled swim bladder.
+A transducer emits sound pulses (pings) and records the returning echoes—how strongly a fish reflects sound depends on its body shape, tissue composition, and especially the gas-filled swim bladder [@Simmonds2008].
 Each fish produces a unique pattern of backscatter strength across frequencies, known as a Frequency Response Curve (FRC).
 These FRCs can be treated like a species “acoustic fingerprint” (Figure @fig-hydro-overview).
 
@@ -129,7 +135,7 @@ The dataset is provided as an RDS file (`TSresponse_clean.RDS`, tracked via Git 
 
 The block `F45..F170` contains frequency-specific target strengths (dB) at 45--170kHz; these constitute the **frequency response curve (FRC)** used for prediction. Additional variables describe geometry/behaviour (e.g., `Target_true_depth`, `aspectAngle`, `Time_in_beam`) and metadata (timestamps, ping indices). 
 
-Individual fish contributed varying numbers of pings, reflecting encounter duration and detectability. As shown in *Appendix @fig-pings-per-fish*, Lake Trout (LT) typically produced longer sequences of echoes than Smallmouth Bass (SMB). This motivated our choice to aggregate pings per fish before modelling rather than train on raw ping-level data.
+Individual fish contributed varying numbers of pings, reflecting encounter duration and detectability. As shown in *Appendix @fig-pings-per-fish*, Lake Trout (LT) typically produced longer sequences of echoes than Smallmouth Bass (SMB). This motivated our choice to aggregate pings per fish before modelling rather than train on raw ping-level data [@Simmonds2008].
 
 
 ## **Scope decisions**
@@ -637,7 +643,7 @@ ggplot(summ_q, aes(frequency, mean_TS, colour = species, fill = species)) +
 
 ## **Effect size by frequency**  {#sec-effectsize}
 
-@fig-effectsize shows Cohen’s d values comparing Lake Trout (LT) and Smallmouth Bass (SMB) at each frequency between 45–170 kHz.
+@fig-effectsize shows Cohen’s d values [@Rice2007] comparing Lake Trout (LT) and Smallmouth Bass (SMB) at each frequency between 45–170 kHz.
 Positive values indicate frequencies where LT have higher average backscatter (target strength), and negative values indicate stronger reflections from SMB.
 
 The plot reveals **moderate effect sizes** (0.2–0.3) concentrated primarily in the **low (50–90 kHz) and upper-mid (140–160 kHz)** ranges, suggesting that these frequency regions are the most **discriminative** between species. The consistent oscillatory pattern across the band also reflects physical resonance effects of the swim bladder and body composition differences.
@@ -693,7 +699,7 @@ The frequency–response curve (FRC; 45–170 kHz) for each fish was transformed
 
 Preliminary inspection of the raw frequency block confirmed extremely high correlation among adjacent frequency bins *(Appendix @fig-corr-heat)*. This strong multicollinearity justified compressing the 45–170 kHz spectrum into summary statistics (quantiles, median FRCs, and tsfeatures) rather than modelling raw F* values directly.
 
-Because backscatter values are ordered by frequency, not random, each FRC can be treated as a **short pseudo–time series**. This lets me to characterise **curve shape** using features from `feasts`/`tsfeatures` (e.g., ACF/PACF summaries, spectral measures, entropy, stability). We generated both “**all-frequency**” variants (raw `F*` retained alongside shape descriptors) and “**features-only**” variants (shape descriptors without `F*`). Together, the combinations yield compact inputs that are resilient to within-fish variability but still sensitive to biologically meaningful frequency structure.
+Because backscatter values are ordered by frequency, not random, each FRC can be treated as a **short pseudo–time series** [@feasts_pkg; @tsfeatures_pkg]. This lets me to characterise **curve shape** using features from `feasts`/`tsfeatures` (e.g., ACF/PACF summaries, spectral measures, entropy, stability). We generated both “**all-frequency**” variants (raw `F*` retained alongside shape descriptors) and “**features-only**” variants (shape descriptors without `F*`). Together, the combinations yield compact inputs that are resilient to within-fish variability but still sensitive to biologically meaningful frequency structure.
 
 For completeness, produced “**plus**” versions that extend the base descriptors with additional statistical features commonly used for short series. Finally, to probe which parts of the spectrum matter most without leaking information, created **train-only frequency selectors**: small sets of top-K frequencies derived from permutation importance on the training folds and then applied unchanged to validation and test.
 
@@ -770,7 +776,7 @@ The “allfreq” versions retain the original frequency bins (F45–F170), wher
 
 The objective was to classify **Lake Trout (LT)** and **Smallmouth Bass (SMB)** using their frequency–response curves (FRC; 45–170 kHz).
 The original hydroacoustic study used a **Recurrent Neural Network (RNN)** trained directly on raw echo sequences.
-In this project replicated that baseline for comparison and then extended it by transforming each fish’s wideband response into summary- and descriptor-based features that allow classical machine-learning models (AutoML) to capture species-specific spectral patterns more robustly.
+In this project replicated that baseline for comparison and then extended it by transforming each fish’s wideband response into summary- and descriptor-based features that allow classical machine-learning models (AutoML) [@h2o_docs_2025] to capture species-specific spectral patterns more robustly.
 
 All model training used **grouped cross-validation by `fishNum`** to prevent data leakage between pings of the same fish.
 
@@ -1333,37 +1339,6 @@ axes = FALSE, xlab = "", ylab = "", col = hcl.colors(50, "Blues 3")
 axis(1, at = seq_len(ncol(R)), labels = colnames(R)[ord], las = 2, cex.axis = 0.6)
 axis(2, at = seq_len(ncol(R)), labels = rev(colnames(R)[ord]), las = 2, cex.axis = 0.6)
 box()
-
-```
-
-```{r}
-#| label: fig-band-boxes
-#| fig-cap: "Band-averaged TS by species (low: 50–90, mid: 90–130, high: 130–170 kHz)."
-#| fig-width: 7
-#| fig-height: 4.5
-
-freq_num <- readr::parse_number(freq_cols)
-bands <- tibble(col = freq_cols, f = freq_num) |>
-mutate(band = case_when(
-f >= 50  & f <  90  ~ "Low (50–90)",
-f >= 90  & f < 130  ~ "Mid (90–130)",
-f >= 130 & f <= 170 ~ "High (130–170)",
-TRUE ~ "Other"
-)) |>
-filter(band != "Other")
-
-band_means <- fish_raw |>
-select(species, all_of(bands$col)) |>
-pivot_longer(-species, names_to = "col", values_to = "TS") |>
-left_join(bands, by = "col") |>
-group_by(species, band) |>
-summarise(TS = mean(TS, na.rm = TRUE), .groups = "drop")
-
-ggplot(band_means, aes(band, TS, fill = species)) +
-geom_col(position = position_dodge(width = 0.7)) +
-labs(x = NULL, y = "Mean TS (dB)") +
-theme_minimal(base_size = 12) +
-theme(legend.position = "bottom")
 
 ```
 
