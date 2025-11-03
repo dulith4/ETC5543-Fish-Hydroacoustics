@@ -171,3 +171,45 @@ This activates renv, checks TF/Keras venv, and loads packages.
   - Updated `00_dependencies.R`
 
   - Updated `renv.lock` (when packages change)
+  
+  
+  Perfect — your current README is already **technically excellent** and covers all environment setup steps clearly.
+To make it complete for **final submission and archival** (since this is now a finished academic project with a report), we’ll **add a short section about the report itself, the reproducibility guarantee, citation info, and acknowledgements** — while keeping your current structure unchanged.
+
+
+## 📘 Project Report
+
+This repository accompanies the Monash University project:
+**“Classifying Lake Trout vs Smallmouth Bass from Wideband Hydroacoustics (45–170 kHz)”**
+*(ETC5543 — Business Analytics Creative Activity, supervised by Dr Natalia Da Silva)*
+
+The full report (PDF) is located under:
+
+```
+reports/ETC5543_FishHydroacoustics_Report.pdf
+```
+
+The report details:
+
+* The complete **frequency-only classification workflow** for hydroacoustic fish identification.
+* **Feature engineering pipelines** using quantiles, medians, and `tsfeatures` and `feasts`.
+* **Leakage-safe model evaluation** using grouped validation by fish ID.
+* **AutoML**, **deep learning grid search**, and **threshold tuning** using `h2o`.
+* Final **model interpretability** via frequency-region importance plots.
+
+Most of the results are fully reproducible from the provided R scripts and locked package versions (`renv.lock`).
+
+
+
+## 🧷 Citation & Reproducibility
+
+If referencing this work, please cite the accompanying report:
+
+> Dulitha Perera (2025). *Classifying Lake Trout vs Smallmouth Bass from Wideband Hydroacoustics (45–170 kHz).*
+> Monash University — ETC5543 Business Analytics Creative Activity.
+> [https://github.com/dulith4/ETC5543-Fish-Hydroacoustics](https://github.com/dulith4/ETC5543-Fish-Hydroacoustics)
+
+The entire project is implemented in **R (4.4+)** with pinned dependencies under **`renv`** and uses **Git LFS** to store large model and data artifacts.
+
+
+
