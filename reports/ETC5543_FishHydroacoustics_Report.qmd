@@ -2,7 +2,7 @@
 title: "Classifying Lake Trout vs Smallmouth Bass from Wideband Hydroacoustics (45–170 kHz)"
 subtitle: "ETC5543 - Business Analytics Creative Activity (Single-student project)"
 author:
-  - name: Dulitha Perera
+  - name: Dulitha Perera 33544506
     affiliation: Monash University - Econometrics & Business Statistics
 supervisor: "Natalia Da Silva"
 repository: "https://github.com/dulith4/ETC5543-Fish-Hydroacoustics"
