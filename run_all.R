@@ -72,8 +72,6 @@ if (interactive()) {
 
 # ---- Helper: detect whether viewer artifacts exist ------------------------
 have_artifacts <- function(path) {
-  # For viewer scripts: only run if their expected outputs exist.
-  # Non-viewers always run.
   list_out <- function(dir) if (dir.exists(dir)) list.files(dir) else character(0)
   tbls <- list_out("outputs/tables")
   figs <- list_out("figures")
@@ -81,15 +79,17 @@ have_artifacts <- function(path) {
   if (grepl("view_results_original\\.R$", path)) {
     any(grepl("^leaderboard_original_\\d{8}_\\d{6}\\.rds$", tbls))
   } else if (grepl("view_results_automl\\.R$", path)) {
-    any(grepl("^leaderboard_original(_blocks)?_\\d{6,8}_\\d{6}\\.rds$", tbls))
+    any(grepl("^leaderboard_original(_blocks)?_\\d{8}_\\d{6}\\.rds$", tbls))
   } else if (grepl("view_results_quintiles\\.R$", path)) {
-    any(grepl("^automl_leaderboard_\\d{8}_\\d{6}\\.rds$", tbls))
+    any(grepl("^leaderboard_quintiles_.*_\\d{8}_\\d{6}\\.rds$", tbls))
   } else if (grepl("view_results_tsfeatures\\.R$", path)) {
-    any(grepl("^leaderboard_(quintiles|median)_(allfreq|feats)_\\d{6,8}_\\d{6}\\.rds$", tbls))
+    any(grepl("^leaderboard_(quintiles|median)_(allfreq|feats)_\\d{8}_\\d{6}\\.rds$", tbls))
+  } else if (grepl("view_results_tsfeatures_plus\\.R$", path)) {
+    any(grepl("^leaderboard_(quintiles|median)_(allfreq|feats)_plus_\\d{8}_\\d{6}\\.rds$", tbls))
   } else if (grepl("view_results_rnn\\.R$", path)) {
-    any(grepl("^rnn_metrics_\\d{6,8}_\\d{6}\\.json$", tbls))
+    any(grepl("^rnn_metrics_\\d{8}_\\d{6}\\.json$", tbls))
   } else {
-    TRUE  # not a viewer -> run
+    TRUE
   }
 }
 
@@ -110,33 +110,33 @@ run_script <- function(path) {
 # Heads-up: some scripts can be long-running.
 # Use message() calls so progress shows in logs/CI.
 scripts <- c(
-  # "00_dependencies.R",                 # optional; re-snapshot packages
-  # "00_smoke_test.R",                   # optional; quick env check
+  # --- Feature engineering (per-fish summaries) ---
+  #"Analysis/02b_fish_quantiles.R",          # build quintiles (5×/fish)
+  #"Analysis/04_tsfeatures_build.R",         # baseline tsfeatures (ACF/PACF/STL)
+  #"Analysis/04e_tsfeatures_plus.R",         # richer tsfeatures (+spectral/entropy/etc.)
+  #"Analysis/04c_freqselectors.R",           # K frequency selector (train-only)
   
-  # Data prep / transforms
-  # "Analysis/02a_check_transformations.R",   # size-standardisation + backscatter
-  # "Analysis/02b_fish_quantiles.R",          # quintile summary (5 per fish)
-  # "Analysis/04_tsfeatures_build.R",         # build fish-level tsfeatures
+  # --- Modelling (main analyses used in the report) ---
+  #"Analysis/03_classification.R",           # AutoML on quintiles_* (allfreq/feats)
+  #"Analysis/05_automl_tsfeatures.R",        # AutoML on tsfeatures (baseline)
+  #"Analysis/05b_automl_tsfeatures_plus.R",  # AutoML on tsfeatures+ (plus variants)
   
-  # Modelling (original structures)
-  # "Analysis/03_classification_original.R",  # AutoML on original per-ping wide table
-  # "Analysis/03a_rnn_reproduction.R",        # RNN reproduction (TF/Keras)
+  # --- Thresholding / diagnostics for tables ---
+  #"Analysis/07_oof_threshold_tuning.R",     # VALID-derived policy threshold & effects
   
-  # Modelling (quintiles)
-  # "Analysis/03_classification.R",           # AutoML on quintile-transformed data
+  # --- (Optional but useful) Deep-learning grid on tsfeatures(+)
+  # "Analysis/08_grid_dl_tsfeatures.R",
   
-  # Modelling (tsfeatures variants)
-  # "Analysis/05_automl_tsfeatures.R",        # AutoML on tsfeature data 
+  # --- Permutation importance for interpretation (used later in Results) ---
+  #"Analysis/09_perm_importance.R",
   
-  # Modelling (backscatter variants)
-  # "Analysis/03b_automl_backscatter.R",      # AutoML per-ping + 5-ping block mean
+  # --- Collate latest artifacts into the neat CSVs the report expects ---
+  #"Analysis/make_results_from_manifest.R",
   
-  # Viewers (no training; expect artifacts to exist — will auto-skip if not)
-  # "Analysis/view_results_original.R",
-  # "Analysis/view_results_quintiles.R",
-  # "Analysis/view_results_rnn.R",
-  # "Analysis/view_results_automl.R",
-  # "Analysis/view_results_tsfeatures.R"
+  # --- Viewers (auto-skip if artifacts not present) ---
+  #"Analysis/view_results_automl.R",
+  #"Analysis/view_results_tsfeatures.R",
+  #"Analysis/view_results_tsfeatures_plus.R"
 )
 
 invisible(lapply(scripts, run_script))
