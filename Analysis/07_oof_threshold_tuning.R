@@ -25,8 +25,8 @@ suppressPackageStartupMessages({
   library(h2o); library(lubridate)
 })
 
-# ---- Shared helpers ----------------------------------------------------------
-source("Analysis/utils_thresholds.R")   # thr_max_acc(), acc_threshold(), clip_thr(), prob_col()
+#Shared helpers 
+source("Analysis/utils_thresholds.R")   
 
 CLAMP <- c(0.40, 0.70)
 POS   <- "SMB"
@@ -46,12 +46,12 @@ dir.create(here("outputs","tables"), recursive = TRUE, showWarnings = FALSE)
   p
 }
 
-# H2O lifecycle ---------------------------------------------------------------
+# H2O lifecycle
 h2o_up <- function() !is.null(tryCatch(h2o.getConnection(), error = function(e) NULL))
 ensure_h2o <- function(heap = "6G") { if (!h2o_up()) h2o.init(nthreads = -1, max_mem_size = heap); invisible(TRUE) }
 fresh_h2o  <- function(heap = "6G") { try(h2o.shutdown(prompt = FALSE), silent = TRUE); Sys.sleep(1); h2o.init(nthreads = -1, max_mem_size = heap); invisible(TRUE) }
 
-# Data paths ------------------------------------------------------------------
+# Data paths 
 paths_needed <- c(
   qa = here("outputs","tables","fish_quintiles_allfreq_tsfeat.rds"),
   qf = here("outputs","tables","fish_quintiles_tsfeat_only.rds"),
@@ -67,7 +67,7 @@ variant_map <- tribble(
   "median_feats",      "mf"
 )
 
-# Load (skip missing) ---------------------------------------------------------
+# Load (skip missing) 
 load_variant_data <- function(vname) {
   key <- variant_map$path_key[match(vname, variant_map$name)]
   p   <- paths_needed[[key]]
@@ -75,7 +75,7 @@ load_variant_data <- function(vname) {
   readRDS(p)
 }
 
-# Split 60/20/20 grouped by fishNum, stratified by species (same spirit as 05)
+# Split 60/20/20 grouped by fishNum, stratified by species 
 split_by_fish_strat <- function(df, p_train = 0.6, p_valid = 0.2, seed = SEED) {
   stopifnot(all(c("fishNum","species") %in% names(df)))
   set.seed(seed)
@@ -85,7 +85,6 @@ split_by_fish_strat <- function(df, p_train = 0.6, p_valid = 0.2, seed = SEED) {
     n_tr <- max(1, floor(p_train*n))
     n_va <- max(1, floor(p_valid*n))
     n_te <- max(1, n - n_tr - n_va)
-    # adjust if overflow
     while (n_tr + n_va + n_te > n) {
       if (n_tr > 1) n_tr <- n_tr - 1 else if (n_va > 1) n_va <- n_va - 1 else n_te <- n_te - 1
     }
@@ -99,7 +98,7 @@ split_by_fish_strat <- function(df, p_train = 0.6, p_valid = 0.2, seed = SEED) {
     relocate(split)
 }
 
-# Build grouped K-folds at fish level inside TRAIN ----------------------------
+# Build grouped K-folds at fish level inside TRAIN 
 make_group_folds <- function(train_df, k = K, seed = SEED) {
   set.seed(seed)
   ids <- train_df |> distinct(fishNum, species)
@@ -108,7 +107,7 @@ make_group_folds <- function(train_df, k = K, seed = SEED) {
   train_df |> left_join(ids, by = c("fishNum","species")) |> rename(fold = .fold)
 }
 
-# Pick single-model algorithm from latest AutoML leaderboard ------------------
+# Pick single-model algorithm from latest AutoML leaderboard 
 # - reads outputs/tables/leaderboard_<variant>_*.rds (created by 05_automl_tsfeatures.R)
 # - skips StackedEnsemble; returns first strong base learner family
 # - fallback = "GBM" if inference fails
@@ -130,22 +129,20 @@ infer_algo_from_leaderboard <- function(variant) {
     return("GBM")
   }
   lb <- readr::read_rds(fp)
-  # First non-ensemble
   mids <- as.character(lb$model_id)
   pick <- mids[!grepl("^StackedEnsemble", mids)][1]
   if (is.na(pick)) pick <- mids[1]
-  # Map by prefix in model_id
   if (grepl("^GBM", pick))           return("GBM")
   if (grepl("^DRF", pick))           return("DRF")
-  if (grepl("^XRT", pick))           return("DRF")       # XRT treated like DRF
+  if (grepl("^XRT", pick))           return("DRF")       
   if (grepl("^DeepLearning", pick))  return("DeepLearning")
   if (grepl("^GLM", pick))           return("GLM")
-  if (grepl("^XGBoost", pick))       return("GBM")       # avoid xgboost-internal dependency issues
+  if (grepl("^XGBoost", pick))       return("GBM")       
   # default
   "GBM"
 }
 
-# Train a single model for one fold -------------------------------------------
+# Train a single model for one fold 
 fit_h2o_single <- function(algo, hex_train, y, x, seed = SEED) {
   switch(algo,
          "GBM" = h2o.gbm(x = x, y = y, training_frame = hex_train,
@@ -165,7 +162,7 @@ fit_h2o_single <- function(algo, hex_train, y, x, seed = SEED) {
   )
 }
 
-# Confusion matrix helper ------------------------------------------------------
+# Confusion matrix helper 
 confusion_df <- function(truth, pred, pos = POS) {
   neg <- setdiff(unique(truth), pos)[1]
   tab <- table(actual = factor(truth, levels = c(neg, pos)),
@@ -173,7 +170,7 @@ confusion_df <- function(truth, pred, pos = POS) {
   as_tibble(as.data.frame.matrix(tab), rownames = "actual")
 }
 
-# Core runner for one variant --------------------------------------------------
+# Core runner for one variant 
 run_variant_oof <- function(variant) {
   df <- load_variant_data(variant)
   if (is.null(df)) {
@@ -193,7 +190,7 @@ run_variant_oof <- function(variant) {
   
   train_folds <- make_group_folds(train_df, k = K, seed = SEED)
   
-  # H2O frames (we will rebuild per fold to isolate train data)
+  # H2O frames 
   ensure_h2o("6G"); h2o.removeAll()
   
   algo <- infer_algo_from_leaderboard(variant)
@@ -253,7 +250,7 @@ run_variant_oof <- function(variant) {
   acc_oof  <- mean(pred_oof == pr_te$species)
   cm_oof   <- confusion_df(truth = pr_te$species, pred = pred_oof, pos = POS)
   
-  # Save artifacts -------------------------------------------------------------
+  # Save artifacts 
   ts  <- ts_tag()
   jfp <- here("outputs","tables", glue("oof_threshold_{variant}_{ts}.json"))
   cfp <- here("outputs","tables", glue("oof_confusion_{variant}_{ts}.csv"))
@@ -274,7 +271,7 @@ run_variant_oof <- function(variant) {
   readr::write_file(jsonlite::toJSON(meta, pretty = TRUE, auto_unbox = TRUE), jfp)
   readr::write_csv(cm_oof, cfp)
   
-  # Console summary ------------------------------------------------------------
+  # Console summary 
   cat(glue(
     "\n=== {toupper(variant)} — OOF threshold tuning ===\n",
     "Leader-algo (inferred): {algo}\n",
@@ -289,7 +286,7 @@ run_variant_oof <- function(variant) {
   invisible(list(json = jfp, confusion_csv = cfp))
 }
 
-# ------------------------------- RUN ALL --------------------------------------
+# RUN ALL 
 main <- function() {
   ensure_h2o("6G"); h2o.removeAll()
   variants <- variant_map$name

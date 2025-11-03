@@ -23,7 +23,7 @@ suppressPackageStartupMessages({
   library(fabletools) 
 })
 
-# -------- Ensure quintiles file exists ----------------------------------------
+# Ensure quintiles file exists
 quintile_rds <- here("outputs","tables","fish_freq_quintiles_long.rds")
 builder_q    <- here("Analysis","02b_fish_quantiles.R")
 
@@ -40,7 +40,7 @@ stopifnot(all(c("fishNum","species","quantile") %in% names(quintiles)))
 freq_cols <- names(quintiles)[str_detect(names(quintiles), "^F\\d+(?:\\.\\d+)?$")]
 stopifnot(length(freq_cols) > 0)
 
-# -------- Helper: compute feasts features from wide -> long -> tsibble --------
+# Helper: compute feasts features from wide -> long -> tsibble 
 # id_cols: character vector of key columns, e.g. c("fishNum","quantile") or "fishNum"
 compute_feats <- function(df, id_cols, value_cols) {
   # turn character names into symbols
@@ -62,7 +62,7 @@ compute_feats <- function(df, id_cols, value_cols) {
     ))
 }
 
-# ============================== (A) QUINTILES =================================
+#  QUINTILES 
 # 5 rows per fish: (fishNum, species, n, quantile) + F* columns
 message("Computing tsfeatures for quintiles …")
 quintiles_feats <- compute_feats(
@@ -87,7 +87,7 @@ dir.create(here("outputs","tables"), recursive = TRUE, showWarnings = FALSE)
 saveRDS(quintiles_allfreq, here("outputs","tables","fish_quintiles_allfreq_tsfeat.rds"))
 saveRDS(quintiles_only,    here("outputs","tables","fish_quintiles_tsfeat_only.rds"))
 
-# ========================== (B) MEDIAN PER FISH ===============================
+# MEDIAN PER FISH 
 # Collapse quintiles to one row per fish via median across quintiles for each F*
 message("Computing tsfeatures for per-fish medians …")
 median_df <- quintiles |>

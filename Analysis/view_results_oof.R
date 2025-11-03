@@ -31,7 +31,7 @@ suppressPackageStartupMessages({
 
 `%||%` <- function(a, b) if (!is.null(a)) a else b
 
-# --- tiny helper to fetch the latest file by timestamp in the filename --------
+# tiny helper to fetch the latest file by timestamp in the filename 
 .latest_file <- function(dir, pattern) {
   paths <- list.files(dir, pattern = pattern, full.names = TRUE)
   if (!length(paths)) return(NA_character_)
@@ -42,7 +42,7 @@ suppressPackageStartupMessages({
   paths[order(sapply(paths, get_ts), decreasing = TRUE)][1]
 }
 
-# --- (optional) try to load baseline metrics from utils_results.R -------------
+# (optional) try to load baseline metrics from utils_results.R 
 .load_metrics_automl_safe <- function(variant) {
   # Try to source utils_results.R (if not already sourced)
   if (!exists("load_metrics_automl", mode = "function")) {
@@ -59,7 +59,7 @@ suppressPackageStartupMessages({
   }
 }
 
-# --- viewer function ----------------------------------------------------------
+# viewer function 
 view_results_oof <- function(variant = c("quintiles_allfreq","quintiles_feats","median_allfreq","median_feats"),
                              positive = "SMB") {
   variant <- match.arg(variant)
@@ -106,7 +106,7 @@ view_results_oof <- function(variant = c("quintiles_allfreq","quintiles_feats","
   invisible(res)
 }
 
-# --- optional quick-run when sourced interactively ----------------------------
+# optional quick-run when sourced interactively 
 if (interactive() && sys.nframe() <= 1) {
   # Change the default here if you usually check a specific variant
   try(view_results_oof("quintiles_allfreq", positive = "SMB"), silent = TRUE)

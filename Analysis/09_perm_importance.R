@@ -9,7 +9,7 @@ if (is.null(tryCatch(h2o.getConnection(), error = function(e) NULL))) {
   h2o.init(nthreads = -1, max_mem_size = "6G")
 }
 
-# Find latest MOJO from your tsfeatures run (adjust the pattern if needed)
+# Find latest MOJO from your tsfeatures run 
 mojo_paths <- list.files(here("outputs","models"),
                          pattern = "model\\.mojo\\.zip$", recursive = TRUE, full.names = TRUE)
 mojo_paths <- mojo_paths[grepl("tsf_q_all|tsf_quint_all", mojo_paths)]
@@ -19,7 +19,7 @@ model <- h2o.import_mojo(mojo_paths[order(file.info(mojo_paths)$mtime, decreasin
 # Load QUINTILES_ALLFREQ data
 qa <- readRDS(here("outputs","tables","fish_quintiles_allfreq_tsfeat.rds"))
 
-# Recreate the grouped split (seed = 73)
+# Recreate the grouped split 
 split_by_fish_strat <- function(df, p_train=.6, p_valid=.2, seed=73){
   set.seed(seed)
   ids <- dplyr::distinct(df, fishNum, species)

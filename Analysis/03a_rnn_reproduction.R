@@ -52,13 +52,13 @@ suppressPackageStartupMessages({
 
 
 
-# ---- 0. Folders ---------------------------------------------------------------
+# Folders 
 dir.create("outputs", showWarnings = FALSE)
 dir.create("outputs/tables", showWarnings = FALSE, recursive = TRUE)
 dir.create("outputs/models", showWarnings = FALSE, recursive = TRUE)
 dir.create("figures", showWarnings = FALSE)
 
-# ---- 1. Helpers: packages & here() -------------------------------------------
+#  Helpers: packages & here()
 ensure_packages <- function(pkgs) {
   missing <- pkgs[!pkgs %in% rownames(installed.packages())]
   if (length(missing)) install.packages(missing, quiet = TRUE)
@@ -85,7 +85,7 @@ library(here)
 set.seed(15)
 tensorflow::set_random_seed(15)
 
-# ---- 2. Ensure backscatter splits exist --------------------------------------
+#Ensure backscatter splits exist 
 builder <- here("Analysis","02a_check_transformations.R")
 train_rds    <- here("outputs","tables","train_backscatter_450.rds")
 validate_rds <- here("outputs","tables","validate_backscatter_450.rds")
@@ -100,7 +100,7 @@ if (!file.exists(train_rds) || !file.exists(validate_rds) || !file.exists(test_r
   }
 }
 
-# ---- 3. Load data & detect frequency columns ---------------------------------
+#  Load data & detect frequency columns 
 train_bs    <- readRDS(train_rds)
 validate_bs <- readRDS(validate_rds)
 test_bs     <- readRDS(test_rds)
@@ -109,7 +109,7 @@ freq_cols <- names(train_bs)[stringr::str_detect(names(train_bs), "^F\\d+(?:\\.\
 stopifnot(length(freq_cols) > 0)
 stopifnot(all(c("Region","species") %in% names(train_bs)))
 
-# ---- 4. Sequence builder (5 pings per segment) -------------------------------
+# Sequence builder (5 pings per segment) 
 # Split within each Region into consecutive blocks of 5; keep exact-5 blocks.
 mk_blocks5 <- function(df) {
   df |>
@@ -145,8 +145,8 @@ xy_train    <- build_xy(train_bs)
 xy_validate <- build_xy(validate_bs)
 xy_test     <- build_xy(test_bs)
 
-# ---- 5. Encode labels (LT=0, SMB=1) ------------------------------------------
-y_to_int <- function(y) { ifelse(y == "SMB", 1L, 0L) }  # keep workshop mapping
+# Encode labels (LT=0, SMB=1) 
+y_to_int <- function(y) { ifelse(y == "SMB", 1L, 0L) }  # keep previous project mapping
 y_train_i    <- y_to_int(xy_train$y)
 y_validate_i <- y_to_int(xy_validate$y)
 y_test_i     <- y_to_int(xy_test$y)
@@ -155,8 +155,8 @@ dummy_y_train    <- keras::to_categorical(y_train_i, num_classes = 2L)
 dummy_y_validate <- keras::to_categorical(y_validate_i, num_classes = 2L)
 dummy_y_test     <- keras::to_categorical(y_test_i, num_classes = 2L)
 
-# ---- 6. Model: mirror the workshop architecture ------------------------------
-input_shape <- c(dim(xy_train$x)[2], dim(xy_train$x)[3])  # (5, 249)
+# Model: mirror the previous project architecture 
+input_shape <- c(dim(xy_train$x)[2], dim(xy_train$x)[3]) 
 
 rnn <- keras_model_sequential() |>
   layer_lstm(input_shape = input_shape, units = input_shape[2]) |>
@@ -178,7 +178,7 @@ rnn |> compile(
   metrics = c("accuracy")
 )
 
-# ---- 7. Train ----------------------------------------------------------------
+# Train 
 history <- rnn |> fit(
   x = xy_train$x, y = dummy_y_train,
   batch_size = 500,
@@ -187,7 +187,7 @@ history <- rnn |> fit(
   class_weight = list("0" = 1, "1" = 2)   # match original
 )
 
-# ---- 8. Evaluate on test ------------------------------------------------------
+# Evaluate on test 
 eval_test <- rnn |> evaluate(xy_test$x, dummy_y_test, verbose = 0)
 preds     <- rnn |> predict(xy_test$x)
 pred_cls  <- apply(preds, 1, which.max)
@@ -222,13 +222,13 @@ roc_plot <- ggplot(roc_df, aes(fpr, tpr)) +
 
 ggsave(roc_path, roc_plot, width = 6.5, height = 5, dpi = 160)
 
-# ---- 9. Save artifacts --------------------------------------------------------
+# Save artifacts
 model_path   <- here("outputs","models", paste0("rnn_model_", ts_tag))
 history_path <- here("outputs","tables", paste0("rnn_history_", ts_tag, ".rds"))
 metrics_path <- here("outputs","tables", paste0("rnn_metrics_", ts_tag, ".json"))
 cm_path      <- here("outputs","tables", paste0("rnn_confusion_", ts_tag, ".csv"))
 
-# ---- 9. Save artifacts (robust on Windows/OneDrive) --------------------------
+#  Save artifacts (robust on Windows/OneDrive) 
 models_dir  <- here("outputs", "models")
 dir.create(models_dir, showWarnings = FALSE, recursive = TRUE)
 
@@ -242,7 +242,7 @@ history_path <- here("outputs","tables", paste0("rnn_history_", short_tag, ".rds
 metrics_path <- here("outputs","tables", paste0("rnn_metrics_", short_tag, ".json"))
 cm_path      <- here("outputs","tables", paste0("rnn_confusion_", short_tag, ".csv"))
 
-# Try SavedModel first; if it fails, fall back to single-file formats
+
 saved_as <- NULL
 ok <- TRUE
 tryCatch({
@@ -255,7 +255,7 @@ tryCatch({
 if (!ok) {
   ok <- TRUE
   tryCatch({
-    keras::save_model(rnn, model_keras)   # Keras v3 single-file format
+    keras::save_model(rnn, model_keras)   
     saved_as <- paste0("Keras .keras: ", model_keras)
   }, error = function(e) {
     ok <<- FALSE
@@ -263,7 +263,7 @@ if (!ok) {
 }
 
 if (!ok) {
-  # Last resort: HDF5
+  
   keras::save_model_hdf5(rnn, model_h5)
   saved_as <- paste0("HDF5 .h5: ", model_h5)
 }

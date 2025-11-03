@@ -1,7 +1,6 @@
 # ==============================================================================
 # ETC5543 Fish Hydroacoustics - 01 Data Transformation
 # Purpose: Clean and prepare raw acoustic dataset 
-# Author: Dulitha Perera
 # ==============================================================================
 
 rm(list = ls())

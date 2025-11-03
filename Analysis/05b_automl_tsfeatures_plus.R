@@ -28,7 +28,7 @@ dir.create("figures",        recursive = TRUE, showWarnings = FALSE)
 
 ts_tag <- format(with_tz(Sys.time(), "Australia/Melbourne"), "%Y%m%d_%H%M%S")
 
-# ---- Ensure *_plus datasets exist --------------------------------------------
+#Ensure *_plus datasets exist 
 paths_needed <- c(
   qa = here("outputs","tables","fish_quintiles_allfreq_tsfeat_plus.rds"),
   qf = here("outputs","tables","fish_quintiles_tsfeat_only_plus.rds"),
@@ -46,7 +46,7 @@ quintiles_feats   <- readRDS(paths_needed["qf"])
 median_allfreq    <- readRDS(paths_needed["ma"])
 median_feats      <- readRDS(paths_needed["mf"])
 
-# ---- Splitter: stratified by species, grouped by fishNum ----------------------
+# Splitter: stratified by species, grouped by fishNum
 split_by_fish_strat <- function(df, p_train = 0.6, p_valid = 0.2, seed = 73) {
   stopifnot(all(c("fishNum","species") %in% names(df)))
   set.seed(seed)
@@ -75,7 +75,7 @@ split_by_fish_strat <- function(df, p_train = 0.6, p_valid = 0.2, seed = 73) {
     relocate(split)
 }
 
-# ---- Top-K discriminative frequencies (train-only) ---------------------------
+# Top-K discriminative frequencies (train-only) 
 K <- 20
 
 augment_feats_with_topF <- function(df_feats, df_allfreq, split_tbl, keys, k = K, positive = "SMB") {
@@ -98,7 +98,7 @@ augment_feats_with_topF <- function(df_feats, df_allfreq, split_tbl, keys, k = K
               by = c(setNames(keys, keys), "species"))
 }
 
-# ---- Variant-aware threshold clipping ----------------------------------------
+# Variant-aware threshold clipping 
 clip_thr_variant <- function(t, name) {
   # default window for ALLFREQ variants
   lo <- 0.50; hi <- 0.80
@@ -107,7 +107,7 @@ clip_thr_variant <- function(t, name) {
   pmin(pmax(as.numeric(t), lo), hi)
 }
 
-# ---- H2O init / health --------------------------------------------------------
+# H2O init / health 
 h2o_up     <- function() !is.null(tryCatch(h2o.getConnection(), error = function(e) NULL))
 ensure_h2o <- function(heap = "6G") { if (!h2o_up()) h2o.init(nthreads = -1, max_mem_size = heap); invisible(TRUE) }
 
@@ -123,7 +123,7 @@ wait_cluster <- function(retries = 20, sleep_sec = 0.5) {
 
 ensure_h2o("6G"); wait_cluster()
 
-# ---- Variants list ------------------------------------------------------------
+# Variants list 
 variants <- list(
   list(
     name        = "quintiles_allfreq_plus",
@@ -159,7 +159,7 @@ variants <- list(
   )
 )
 
-# ---- Runner (robust) ----------------------------------------------------------
+# Runner (robust) 
 run_one <- function(v, seed = 73, budget = 600, positive = "SMB") {
   message("\n=== AutoML variant: ", v$name, " ===")
   ensure_h2o(); h2o.removeAll()
@@ -180,7 +180,7 @@ run_one <- function(v, seed = 73, budget = 600, positive = "SMB") {
     )
   }
   
-  # --- Build modeling table once (avoid dup/suffix names) ---------------------
+  # Build modeling table once (avoid dup/suffix names) 
   base_idx <- sp %>%
     dplyr::select(dplyr::all_of(c(v$keys, "species", "split"))) %>%
     dplyr::distinct()
@@ -200,7 +200,7 @@ run_one <- function(v, seed = 73, budget = 600, positive = "SMB") {
   hex_va[,"species"] <- h2o.asfactor(hex_va[,"species"])
   hex_te[,"species"] <- h2o.asfactor(hex_te[,"species"])
   
-  # ---- AutoML -----------------------------------------------------------------
+  # AutoML 
   nf <- if (grepl("^median_", v$name)) 0 else 5  # tiny sets: disable CV
   aml <- h2o.automl(
     x = x_cols, y = "species",
@@ -217,7 +217,7 @@ run_one <- function(v, seed = 73, budget = 600, positive = "SMB") {
   best    <- aml@leader
   lb_full <- h2o.get_leaderboard(aml, extra_columns = "ALL")
   
-  # ---- Metrics & thresholds (robust to nf = 0) --------------------------------
+  #  Metrics & thresholds (robust to nf = 0) 
   cv_auc        <- NA_real_
   thr_cv_raw    <- NA_real_
   thr_cv_clip   <- NA_real_
@@ -252,7 +252,7 @@ run_one <- function(v, seed = 73, budget = 600, positive = "SMB") {
   thr_valid_raw   <- thr_max_acc(truth = pv$species, prob = pv[[pc]], positive = positive)
   thr_policy_clip <- clip_thr_variant(thr_valid_raw, v$name)
   
-  # --- Pick FINAL policy threshold using VALID accuracy among {0.50, raw, clipped}
+  # Pick FINAL policy threshold using VALID accuracy among {0.50, raw, clipped}
   neg <- setdiff(unique(pv$species), positive)[1]
   acc_at <- function(th) mean(ifelse(pv[[pc]] >= th, positive, neg) == pv$species)
   
@@ -270,7 +270,7 @@ run_one <- function(v, seed = 73, budget = 600, positive = "SMB") {
   thr_policy_final  <- cand$thr[pick_idx]
   thr_policy_choice <- cand$name[pick_idx]
   
-  # ---- Baselines + @policy ----------------------------------------------------
+  # Baselines + @policy 
   perf_test        <- h2o.performance(best, hex_te)
   acc_argmax       <- if ("predict" %in% names(pt)) mean(pt$species == pt$predict) else NA_real_
   acc_test_050     <- suppressWarnings(as.numeric(h2o.accuracy(perf_test, thresholds = 0.50)))
@@ -288,7 +288,7 @@ run_one <- function(v, seed = 73, budget = 600, positive = "SMB") {
   acc_train_policy <- if (is.finite(thr_policy_final)) mean(ifelse(pr[[prob_col(pr, positive)]] >= thr_policy_final, positive, neg) == pr$species) else NA_real_
   acc_valid_policy <- if (is.finite(thr_policy_final)) mean(ifelse(pv[[pc]] >= thr_policy_final,                   positive, neg) == pv$species) else NA_real_
   
-  # ---- Persist artifacts ------------------------------------------------------
+  #  Persist artifacts
   readr::write_rds(as_tibble(lb_full), here("outputs","tables", glue("leaderboard_{v$name}_{ts_tag}.rds")))
   readr::write_rds(as_tibble(pr),      here("outputs","tables", glue("preds_{v$name}_train_{ts_tag}.rds")))
   readr::write_rds(as_tibble(pv),      here("outputs","tables", glue("preds_{v$name}_valid_{ts_tag}.rds")))
@@ -304,12 +304,12 @@ run_one <- function(v, seed = 73, budget = 600, positive = "SMB") {
     acc_test_argmax       = acc_argmax,
     thr_policy_raw        = as.numeric(thr_valid_raw),
     thr_policy_clip       = as.numeric(thr_policy_clip),
-    thr_policy_final      = as.numeric(thr_policy_final),   # FINAL
-    thr_policy_choice     = thr_policy_choice,              # FINAL choice name
-    acc_train_at_policy   = acc_train_policy,               # @FINAL
-    acc_valid_at_policy   = acc_valid_policy,               # @FINAL
-    acc_test_at_policy    = acc_test_final,                 # @FINAL
-    acc_test_at_policyRaw = acc_test_raw,                   # reference
+    thr_policy_final      = as.numeric(thr_policy_final),   
+    thr_policy_choice     = thr_policy_choice,              
+    acc_train_at_policy   = acc_train_policy,               
+    acc_valid_at_policy   = acc_valid_policy,               
+    acc_test_at_policy    = acc_test_final,                
+    acc_test_at_policyRaw = acc_test_raw,                   
     positive_class        = positive
   )
   readr::write_file(jsonlite::toJSON(metrics, pretty = TRUE, auto_unbox = TRUE),
@@ -324,7 +324,7 @@ run_one <- function(v, seed = 73, budget = 600, positive = "SMB") {
     save_binary = TRUE,
     extras      = list(
       positive_class = positive,
-      policy_thr     = thr_policy_final,                        # FINAL
+      policy_thr     = thr_policy_final,                        
       clamp          = if (grepl("_feats_", v$name)) c(0.55, 0.85) else c(0.50, 0.80)
     )
   )

@@ -10,13 +10,13 @@ suppressPackageStartupMessages({
   library(tidyverse)
   library(here)
   library(tsibble)
-  library(fabletools)  # features()
-  library(feasts)      # feat_acf()
+  library(fabletools)  
+  library(feasts)      
   library(lubridate)
 })
 
 
-# ---- Preflight: ensure required quintile file exists (build if missing) ----
+# Preflight: ensure required quintile file exists (build if missing) 
 quintile_rds <- here("outputs", "tables", "fish_freq_quintiles_long.rds")
 builder_r    <- here("Analysis", "02b_fish_quantiles.R")  # generates the RDS
 
@@ -28,7 +28,7 @@ if (!file.exists(quintile_rds)) {
   }
 }
 
-# ------------------------------- Paths ----------------------------------------
+# Paths 
 in_path    <- here("outputs", "tables", "fish_freq_quintiles_long.rds")
 tables_dir <- here("outputs", "tables")
 if (!dir.exists(tables_dir)) dir.create(tables_dir, recursive = TRUE)
@@ -40,11 +40,11 @@ ts_now <- timestamp_str()
 out_features <- file.path(tables_dir, paste0("fish_features_tsfeat_", ts_now, ".rds"))
 out_diag     <- file.path(tables_dir, paste0("fish_features_diagnostics_", ts_now, ".rds"))
 
-# ------------------------------ Load (WIDE) -----------------------------------
+# Load (WIDE) 
 dat_long <- readRDS(in_path)
-# Expect at least: fishNum, species, n, quantile, and F45...F170 columns.
 
-# -------------------- Wide F* -> Long (freq_khz, value) -----------------------
+
+#  Wide F* -> Long (freq_khz, value)
 freq_cols <- names(dat_long) |>
   keep(~ grepl("^F\\d+(\\.\\d+)?$", .x)) |>
   (\(v){
@@ -77,20 +77,21 @@ dat_long <- dat_long |>
   ) |>
   select(fishNum, species, freq_khz, quantile, value)
 
-# ------------------------- Tsibble (fish×quantile) ----------------------------
+#  Tsibble (fish × quantile) 
 curve_ts <- dat_long |>
   arrange(fishNum, quantile, freq_khz) |>
   as_tsibble(index = freq_khz, key = c(fishNum, quantile))
 
-# ----------------------------- ACF features -----------------------------------
+#ACF features 
 acf_by_quant <- fabletools::features(
   .tbl     = curve_ts,
   .var     = value,
   features = list(feasts::feat_acf)
 )
+
 # Columns: fishNum, quantile, acf1, acf10, diff1_acf1, diff1_acf10, diff2_acf1, diff2_acf10
 
-# ----------------------- Pivot to one row per fish ----------------------------
+# Pivot to one row per fish 
 acf_wide <- acf_by_quant |>
   mutate(q_suffix = paste0("q", as.integer(as.character(quantile)))) |>
   select(fishNum, q_suffix, starts_with("acf"), starts_with("diff")) |>
@@ -104,7 +105,7 @@ features_tbl <- dat_long |>
   right_join(acf_wide, by = "fishNum") |>
   relocate(fishNum, species)
 
-# ------------------------------ Diagnostics -----------------------------------
+# Diagnostics
 na_summary <- features_tbl |>
   summarise(across(everything(), ~sum(is.na(.x)))) |>
   pivot_longer(everything(), names_to = "column", values_to = "n_na") |>
@@ -128,7 +129,7 @@ diag <- list(
   near_zero_var  = nzv
 )
 
-# -------------------------------- Save ----------------------------------------
+# Save 
 saveRDS(features_tbl, out_features)
 saveRDS(diag,         out_diag)
 

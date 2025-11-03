@@ -7,7 +7,7 @@ suppressPackageStartupMessages({
   library(lubridate); library(jsonlite); library(h2o)
 })
 
-source("Analysis/utils_thresholds.R")   # acc_threshold(), thr_max_acc(), clip_thr(), prob_col()
+source("Analysis/utils_thresholds.R")   
 source("Analysis/utils_models.R")
 
 dir.create("outputs/tables", recursive = TRUE, showWarnings = FALSE)
@@ -16,7 +16,7 @@ ts_tag <- format(with_tz(Sys.time(), "Australia/Melbourne"), "%Y%m%d_%H%M%S")
 seed   <- 73
 clamp_thr <- function(t, lo = 0.40, hi = 0.70) pmin(pmax(as.numeric(t), lo), hi)
 
-# ---- Ensure the four tsfeature datasets exist (build if missing) ------------
+# Ensure the four tsfeature datasets exist (build if missing)
 paths_needed <- c(
   qa = here("outputs","tables","fish_quintiles_allfreq_tsfeat.rds"),
   qf = here("outputs","tables","fish_quintiles_tsfeat_only.rds"),
@@ -34,7 +34,7 @@ quintiles_feats   <- readRDS(paths_needed["qf"])
 median_allfreq    <- readRDS(paths_needed["ma"])
 median_feats      <- readRDS(paths_needed["mf"])
 
-# ---- Variants list -----------------------------------------------------------
+# Variants list 
 variants <- list(
   list(name = "quintiles_allfreq", data = quintiles_allfreq, tag = "tsf_quint_all"),
   list(name = "quintiles_feats",   data = quintiles_feats,   tag = "tsf_quint_feats"),
@@ -42,12 +42,12 @@ variants <- list(
   list(name = "median_feats",      data = median_feats,      tag = "tsf_median_feats")
 )
 
-# ---- H2O up ------------------------------------------------------------------
+# H2O up 
 h2o_up     <- function() !is.null(tryCatch(h2o.getConnection(), error = function(e) NULL))
 ensure_h2o <- function(heap = "6G") { if (!h2o_up()) h2o.init(nthreads = -1, max_mem_size = heap); invisible(TRUE) }
 ensure_h2o("6G")
 
-# ---- Stratified split by fish (60/20/20) ------------------------------------
+# Stratified split by fish (60/20/20) 
 split_by_fish_strat <- function(df, p_train = 0.6, p_valid = 0.2, seed = 73) {
   stopifnot(all(c("fishNum","species") %in% names(df)))
   set.seed(seed)

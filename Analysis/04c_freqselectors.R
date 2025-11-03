@@ -22,7 +22,7 @@ cohen_d <- function(x, g) {
   (m2 - m1)/sp
 }
 
-# df_tr: TRAIN rows only of the variant you’ll run; must have species + F*
+# df_tr: TRAIN rows only of the variant that run; must have species + F*
 select_discriminative_freqs <- function(df_tr, k = 20, positive = "SMB") {
   fcols <- freq_cols_from(df_tr)
   stopifnot(length(fcols) > 0, "species" %in% names(df_tr))

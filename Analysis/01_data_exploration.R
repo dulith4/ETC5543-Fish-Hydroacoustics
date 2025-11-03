@@ -3,7 +3,6 @@
 # File: Analysis/01_data_exploration.R
 # Purpose: Sanity checks of raw data vs quintile-transformed frequency table,
 #          and produce summary tables/figures for the report.
-# Author: Dulitha Perera
 # ==============================================================================
 
 # ---- 0) Setup ---------------------------------------------------------------
@@ -159,7 +158,7 @@ trans_summary <- trans_summary |>
   mutate(
     qnum = readr::parse_number(as.character(quintile)),   # "Q3" -> 3, "0.4" -> 0.4
     qnum = dplyr::case_when(
-      qnum %in% 1:5        ~ qnum,               # already 1..5
+      qnum %in% 1:5        ~ qnum,               
       qnum > 0 & qnum <= 1 ~ round(qnum * 5),    # proportions -> 1..5
       qnum > 1 & qnum <= 100 ~ pmax(1, pmin(5, round(qnum / 20))), # percentages -> 1..5
       TRUE ~ NA_real_
@@ -188,7 +187,7 @@ p_trans <- ggplot(trans_summary,
 ggsave("figures/transformed_FRC.png", p_trans, width = 8, height = 4.8, dpi = 300)
 
 
-# ---- 5c) Quintile-only FRC (all species combined) ---------------------------
+#  5c) Quintile-only FRC (all species combined) 
 # Goal: show that the 5 quintiles form distinct acoustic levels even when species are ignored
 
 # Standardise quintile to 1..5 from the long table, then summarise across species

@@ -18,7 +18,7 @@ suppressPackageStartupMessages({
   library(stringr)
 })
 
-# optional package; we guard every call
+# optional package; guard every call
 has_tsfeatures <- requireNamespace("tsfeatures", quietly = TRUE)
 
 quintile_rds <- here("outputs","tables","fish_freq_quintiles_long.rds")
@@ -35,7 +35,7 @@ stopifnot(all(c("fishNum","species","quantile") %in% names(quintiles)))
 freq_cols <- names(quintiles)[str_detect(names(quintiles), "^F\\d+(?:\\.\\d+)?$")]
 stopifnot(length(freq_cols) > 0)
 
-# -------- feasts features (explicit args for tsibble method) ------------------
+# feasts features (explicit args for tsibble method) 
 feasts_feats <- function(tsib, vcol = "value") {
   v <- rlang::sym(vcol)
   fabletools::features(
@@ -50,7 +50,7 @@ feasts_feats <- function(tsib, vcol = "value") {
   )
 }
 
-# -------- tsfeatures (guarded; returns empty columns if package missing) ------
+# tsfeatures (guarded; returns empty columns if package missing) 
 tf_safe <- function(vec) {
   if (!has_tsfeatures) return(tibble())
   x <- as.numeric(vec)
@@ -80,7 +80,7 @@ tf_safe <- function(vec) {
   tibble(!!!out)
 }
 
-# -------- generic builder: wide(F*) -> long(freq,value) -> tsibble -> feats ---
+# generic builder: wide(F*) -> long(freq,value) -> tsibble -> feats 
 compute_feats_plus <- function(df, id_cols, value_cols) {
   id_syms  <- rlang::syms(id_cols)
   key_expr <- rlang::quo(c(!!!id_syms))
@@ -115,7 +115,7 @@ compute_feats_plus <- function(df, id_cols, value_cols) {
   F1 %>% left_join(add_tf, by = setNames(names(base_ids), names(base_ids)))
 }
 
-# ============================== (A) QUINTILES =================================
+#  QUINTILES
 message("Computing tsfeatures+ for quintiles …")
 q_feats <- compute_feats_plus(quintiles, id_cols = c("fishNum","quantile"), value_cols = freq_cols) |>
   left_join(quintiles |> distinct(fishNum, quantile, species),
@@ -124,7 +124,7 @@ q_feats <- compute_feats_plus(quintiles, id_cols = c("fishNum","quantile"), valu
 quintiles_allfreq_plus <- quintiles |> left_join(q_feats, by = c("fishNum","quantile","species"))
 quintiles_feats_plus   <- q_feats
 
-# ============================ (B) MEDIAN PER FISH =============================
+# MEDIAN PER FISH 
 message("Computing tsfeatures+ for per-fish medians …")
 median_df <- quintiles |>
   group_by(fishNum, species) |>

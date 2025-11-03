@@ -6,14 +6,14 @@
 # - No feature engineering here (that comes later)
 # ==============================================================================
 
-# ---- packages ---------------------------------------------------------------
+#  packages 
 suppressPackageStartupMessages({
   library(tidyverse)
   library(hms)
   library(stringr)
 })
 
-# ---- loader -----------------------------------------------------------------
+# loader 
 load_fish_transformed <- function(
     raw_path   = "data/TSresponse_clean.RDS",
     use_cache  = TRUE,
@@ -63,7 +63,7 @@ load_fish_transformed <- function(
   if ("mat" %in% names(df))     df <- df |> mutate(mat     = factor(mat, levels = c(1,2), labels = c("immature","mature")))
   if ("species" %in% names(df)) df <- df |> mutate(species = factor(species))
   
-  # deltaMajAng -> deltaMaxAng if needed
+  # deltaMajAng -> deltaMaxAng 
   if ("deltaMajAng" %in% names(df) && !"deltaMaxAng" %in% names(df)) {
     df <- df |> dplyr::rename(deltaMaxAng = deltaMajAng)
   }

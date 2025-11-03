@@ -17,7 +17,7 @@ prob_col <- function(df, positive = "SMB") {
   stop("No probability column for class '", positive, "'.")
 }
 
-# ---- function API -------------------------------------------------------------
+# function API 
 score_newdata <- function(mojo_dir, input_csv, threshold, out_csv = NULL, positive = "SMB") {
   if (is.null(out_csv)) {
     dir.create("outputs/preds", recursive = TRUE, showWarnings = FALSE)
@@ -63,15 +63,15 @@ score_newdata <- function(mojo_dir, input_csv, threshold, out_csv = NULL, positi
   invisible(out_csv)
 }
 
-# ---- auto-run example (only when sourced interactively) ----------------------
+#auto-run example (only when sourced interactively) 
 if (interactive()) {
-  # change these three lines for ad-hoc testing
+ 
   latest_dir <- list.dirs("outputs/models/tsf_quint_all", recursive = FALSE, full.names = TRUE)
   latest_dir <- latest_dir[which.max(file.info(latest_dir)$mtime)]
   score_newdata(
     mojo_dir  = latest_dir,
-    input_csv = "templates/newdata_template_quint_allfreq.csv", # put real data here
-    threshold = 0.4489,                                         # replace with your final value
+    input_csv = "templates/newdata_template_quint_allfreq.csv", 
+    threshold = 0.4489,                                         
     out_csv   = "outputs/preds/example_preds_quint_allfreq.csv"
   )
 }

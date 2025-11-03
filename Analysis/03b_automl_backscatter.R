@@ -13,7 +13,7 @@ suppressPackageStartupMessages({
 })
 
 source("Analysis/utils_models.R")
-source("Analysis/utils_thresholds.R")   # acc_threshold(), thr_max_acc(), clip_thr(), prob_col()
+source("Analysis/utils_thresholds.R")   
 
 clamp_thr <- function(t, lo = 0.40, hi = 0.70) pmin(pmax(as.numeric(t), lo), hi)
 
@@ -24,7 +24,7 @@ dir.create("figures", showWarnings = FALSE, recursive = TRUE)
 ts_tag <- format(with_tz(Sys.time(), "Australia/Melbourne"), "%Y%m%d_%H%M%S")
 seed   <- 73
 
-# ---- Ensure backscatter splits exist (build if missing) ----------------------
+# Ensure backscatter splits exist (build if missing) 
 builder <- here("Analysis","02a_check_transformations.R")
 train_rds    <- here("outputs","tables","train_backscatter_450.rds")
 validate_rds <- here("outputs","tables","validate_backscatter_450.rds")
@@ -45,7 +45,7 @@ test_bs     <- readRDS(test_rds)
 freq_cols <- names(train_bs)[stringr::str_detect(names(train_bs), "^F\\d+(?:\\.\\d+)?$")]
 stopifnot(length(freq_cols) > 0, all(c("Region","species") %in% names(train_bs)))
 
-# ---- Block means (5 pings in order within Region) ----------------------------
+# Block means (5 pings in order within Region) 
 mk_blocks5 <- function(df) {
   df |>
     dplyr::group_by(Region) |>
@@ -60,7 +60,7 @@ train_blk <- mk_blocks5(train_bs)
 valid_blk <- mk_blocks5(validate_bs)
 test_blk  <- mk_blocks5(test_bs)
 
-# ---- Variants: per-ping & block-mean ----------------------------------------
+# Variants: per-ping & block-mean 
 variants <- list(
   list(
     name  = "original",
@@ -78,7 +78,7 @@ variants <- list(
   )
 )
 
-# ---- H2O ---------------------------------------------------------------------
+#  H2O 
 if (!requireNamespace("h2o", quietly = TRUE)) install.packages("h2o")
 h2o.init(nthreads = -1)
 

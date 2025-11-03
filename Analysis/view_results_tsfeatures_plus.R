@@ -53,7 +53,6 @@ auc_from_probs <- function(truth, prob, positive = "SMB"){
 
 roc_points <- function(truth, prob, positive = "SMB"){
   y <- as.integer(truth == positive)
-  # guard: need both classes present
   if (sum(y) == 0L || sum(1 - y) == 0L) {
     return(tibble(fpr = c(0,1), tpr = c(0,1)))
   }

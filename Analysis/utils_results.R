@@ -8,7 +8,7 @@ suppressPackageStartupMessages({
 
 `%||%` <- function(a, b) if (!is.null(a)) a else b
 
-# ---------- basics ----------
+#  basics 
 .latest <- function(dirs, pattern) {
   paths <- unlist(lapply(dirs, function(d) if (dir.exists(d)) list.files(d, pattern = pattern, full.names = TRUE) else character(0)))
   if (!length(paths)) stop(glue("No files found for pattern '{pattern}' in {toString(dirs)}"))
@@ -58,7 +58,7 @@ summarize_preds <- function(preds) {
 }
 .pick_policy_thr <- function(m) as.numeric(m$thr_policy_clip %||% m$thr_policy %||% NA_real_)
 
-# ---------- ORIGINAL viewers ----------
+# ORIGINAL viewers 
 load_leaderboard <- function(run = c("original","fishlevel")) {
   run <- match.arg(run)
   path <- .latest("outputs/tables", glue("^leaderboard_{run}_\\d{{8}}_\\d{{6}}\\.rds$"))
@@ -115,7 +115,6 @@ view_results <- function(run = c("original","fishlevel"),
   
   m <- try(load_metrics_original(), silent = TRUE)
   have_m <- !inherits(m, "try-error")
-  # accept either CV-clip or VALID-clip
   thr_clip   <- if (have_m) clamp_thr(as.numeric(m$thr_cv_f1_clip %||% m$thr_valid_f1_clip %||% NA_real_), 0.40, 0.70) else NA_real_
   thr_policy <- if (have_m) clamp_thr(.pick_policy_thr(m), 0.40, 0.70) else NA_real_
   if (!is.null(thr)) thr_clip <- thr
@@ -169,7 +168,7 @@ view_results <- function(run = c("original","fishlevel"),
   invisible(TRUE)
 }
 
-# ---------- QUINTILES viewer ----------
+#  QUINTILES viewer 
 load_leaderboard_quintiles <- function() {
   path <- .latest("outputs/tables", "^automl_leaderboard_\\d{8}_\\d{6}\\.rds$")
   lb <- readr::read_rds(path); attr(lb, "path") <- path; lb
@@ -223,7 +222,7 @@ view_results_quintiles <- function(positive = "SMB", open_roc = FALSE) {
   invisible(TRUE)
 }
 
-# ---------- AutoML (backscatter + tsfeatures) ----------
+# AutoML (backscatter + tsfeatures) 
 load_lb_automl <- function(name = c("original","original_blocks","quintiles_allfreq","quintiles_feats","median_allfreq","median_feats")) {
   name <- match.arg(name)
   path <- .latest("outputs/tables", glue::glue("^leaderboard_{name}_\\d{{6,8}}_\\d{{6}}\\.rds$"))

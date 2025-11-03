@@ -7,7 +7,7 @@ suppressPackageStartupMessages({
   library(jsonlite); library(h2o)
 })
 
-source("Analysis/utils_thresholds.R")   # acc_threshold(), thr_max_acc(), clip_thr(), prob_col()
+source("Analysis/utils_thresholds.R")   
 
 dir.create("outputs/tables", recursive = TRUE, showWarnings = FALSE)
 
@@ -15,7 +15,7 @@ ts_tag <- format(with_tz(Sys.time(), "Australia/Melbourne"), "%Y%m%d_%H%M%S")
 seed   <- 73
 clamp_thr <- function(t, lo = 0.40, hi = 0.70) pmin(pmax(as.numeric(t), lo), hi)
 
-# ---------- Ensure tsfeature inputs exist ----------
+# Ensure tsfeature inputs exist 
 paths_needed <- c(
   qa = here("outputs","tables","fish_quintiles_allfreq_tsfeat.rds"),
   qf = here("outputs","tables","fish_quintiles_tsfeat_only.rds"),
@@ -40,12 +40,12 @@ variants <- list(
   list(name = "median_feats",      data = median_feats)
 )
 
-# ---------- H2O helpers ----------
+# H2O helpers
 h2o_up <- function() !is.null(tryCatch(h2o.getConnection(), error = function(e) NULL))
 ensure_h2o <- function(heap = "6G", random_port = FALSE) {
   if (!h2o_up()) {
     if (random_port) {
-      # use a random available port to avoid race conditions with stuck JVMs
+      
       h2o.init(nthreads = -1, max_mem_size = heap, port = 0, startH2O = TRUE)
     } else {
       h2o.init(nthreads = -1, max_mem_size = heap)
@@ -55,7 +55,7 @@ ensure_h2o <- function(heap = "6G", random_port = FALSE) {
 }
 ensure_h2o("6G")
 
-# ---------- Split + grouped CV folds by fish ----------
+# Split + grouped CV folds by fish
 split_60_20_20 <- function(df, seed = 73) {
   stopifnot(all(c("fishNum","species") %in% names(df)))
   set.seed(seed)
@@ -75,10 +75,10 @@ split_60_20_20 <- function(df, seed = 73) {
   df |> left_join(per_fish, by = c("fishNum","species"))
 }
 
-# ---------- One variant runner ----------
+#  One variant runner 
 run_one <- function(v, positive = "SMB") {
   message("\n=== DL GRID — ", v$name, " ===")
-  # be gentle with removeAll: if it times out, restart H2O on a new port
+  
   ok <- tryCatch({ h2o.removeAll(); TRUE }, error = function(e) FALSE)
   if (!ok) {
     try(h2o.shutdown(prompt = FALSE), silent = TRUE)
@@ -99,7 +99,7 @@ run_one <- function(v, positive = "SMB") {
   hex_va[,y] <- h2o.asfactor(hex_va[,y])
   hex_te[,y] <- h2o.asfactor(hex_te[,y])
   
-  # ---------------- Wider DL grid (DL-safe params only) ----------------
+  # Wider DL grid (DL-safe params only) 
   hyper_params <- list(
     # depth/width
     hidden = list(c(64,64), c(128,64), c(128,128), c(256,128), c(256,256),
@@ -152,7 +152,6 @@ run_one <- function(v, positive = "SMB") {
       x = x, y = y,
       training_frame   = hex_tr,
       validation_frame = hex_va,
-      # NOTE: Grid API has no leaderboard_frame — removed for compatibility
       fold_column      = "cv_fold",
       distribution     = "bernoulli",
       standardize      = TRUE,
@@ -185,7 +184,7 @@ run_one <- function(v, positive = "SMB") {
   message("Best DL model: ", best_id)
   best <- h2o.getModel(best_id)
   
-  # ---- Evaluate @0.50 and @policy threshold (VALID max-ACC, clipped 0.40–0.70) ----
+  # Evaluate @0.50 and @policy threshold (VALID max-ACC, clipped 0.40–0.70)
   pv <- as.data.frame(h2o.predict(best, hex_va)) |>
     dplyr::bind_cols(species = as.character(as.data.frame(hex_va)$species))
   pt <- as.data.frame(h2o.predict(best, hex_te)) |>
@@ -200,7 +199,7 @@ run_one <- function(v, positive = "SMB") {
   acc_test_050 <- mean(ifelse(pt[[pc]] >= 0.50,        positive, neg) == pt$species)
   acc_test_pol <- mean(ifelse(pt[[pc]] >= thr_pol_clip, positive, neg) == pt$species)
   
-  # ---- Save artifacts ----
+  # Save artifacts 
   readr::write_rds(
     as_tibble(h2o.getGrid(grid_id)@summary_table),
     here("outputs","tables", glue("dlgrid_leaderboard_{v$name}_{ts_tag}.rds"))

@@ -16,20 +16,11 @@ library(forcats)
 if (!dir.exists("figures")) dir.create("figures")
 if (!dir.exists("outputs")) dir.create("outputs")
 
-# ==============================================================================
-# 1. LOAD AND INSPECT DATA
-# ==============================================================================
-
 
 
 # Load the data
 fish_data <- read_rds("data/TSresponse_clean.RDS")
 
-
-
-# ==============================================================================
-# 2. CHECK KEY VARIABLES
-# ==============================================================================
 
 
 # Check some important columns
@@ -54,9 +45,6 @@ size_summary <- fish_data |>
   )
 print(size_summary)
 
-# ==============================================================================
-# 3. SIMPLE PLOTS
-# ==============================================================================
 
 
 
@@ -144,20 +132,20 @@ ggsave("figures/07_airbladder_ratio.png", p7, width = 8, height = 6)
 
 # Species proportion by region
 
-# --- Clean region labels (keep just the numeric ID) ---
+# Clean region labels (keep just the numeric ID) 
 fish_data <- fish_data %>%
   mutate(
     region_short = gsub("^\\s*Region_\\s*", "", Region_name) |> trimws()
   )
 
-# --- Counts and proportions by region × species ---
+# Counts and proportions by region × species 
 region_species <- fish_data %>%
   count(region_short, species, name = "n") %>%
   group_by(region_short) %>%
   mutate(prop = n / sum(n)) %>%
   ungroup()
 
-# --- Force numeric ordering on the y-axis ---
+# Force numeric ordering on the y-axis 
 region_species_num <- region_species %>%
   mutate(region_num = readr::parse_number(region_short)) %>%
   filter(!is.na(region_num))
@@ -167,7 +155,7 @@ num_levels <- sort(unique(region_species_num$region_num))
 region_species_num <- region_species_num %>%
   mutate(region_id = factor(region_num, levels = num_levels))  # ordered factor 1..N
 
-# --- Plot ---
+# Plot 
 p_region_species <- ggplot(region_species_num,
                            aes(x = prop, y = region_id, fill = species)) +
   geom_col(color = "white", linewidth = 0.2) +

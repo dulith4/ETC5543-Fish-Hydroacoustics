@@ -14,18 +14,18 @@ suppressPackageStartupMessages({
 
 set.seed(73)
 
-# ------------------------------- Paths ----------------------------------------
+# Paths 
 raw_path <- here("data", "TSresponse_clean.RDS")
 out_dir  <- here("outputs", "tables")
 if (!dir.exists(out_dir)) dir.create(out_dir, recursive = TRUE)
 
-# ------------------------------ Load data -------------------------------------
+#Load data 
 raw_data <- readRDS(raw_path)
 
 # Identify frequency columns robustly
 freq_cols <- names(raw_data)[which(names(raw_data) == "F45"):which(names(raw_data) == "F170")]
 
-# --------------------------- Grouped splits -----------------------------------
+# Grouped splits 
 # 80% train ; remaining 20% split 50/50 into validate/test
 split1   <- group_initial_split(raw_data, group = fishNum, strata = species, prop = 0.8)
 train    <- training(split1)
@@ -35,7 +35,7 @@ split2   <- group_initial_split(val_test, group = fishNum, strata = species, pro
 validate <- training(split2)
 test     <- testing(split2)
 
-# ------------------ Keep needed cols, then standardise to 450 mm --------------
+#Keep needed cols, then standardise to 450 mm
 prep_standardise <- function(df, target_len = 450) {
   stopifnot(all(c("Region", "species", "totalLength") %in% names(df)))
   df2 <- df |>
@@ -56,7 +56,7 @@ train_bs    <- prep_standardise(train,    target_len = 450)
 validate_bs <- prep_standardise(validate, target_len = 450)
 test_bs     <- prep_standardise(test,     target_len = 450)
 
-# ------------------------------- Checks ---------------------------------------
+#Checks
 # 1) No NAs created in freq columns
 stopifnot(!any(is.na(select(train_bs, all_of(freq_cols)))),
           !any(is.na(select(validate_bs, all_of(freq_cols)))),
@@ -79,7 +79,7 @@ stopifnot(all(select(train_bs, all_of(freq_cols)) > 0))
 
 message("✓ Size-standardisation to 450 mm + backscatter conversion verified.")
 
-# ------------------------------- Save -----------------------------------------
+#Save
 saveRDS(train_bs,    file = file.path(out_dir, "train_backscatter_450.rds"))
 saveRDS(validate_bs, file = file.path(out_dir, "validate_backscatter_450.rds"))
 saveRDS(test_bs,     file = file.path(out_dir, "test_backscatter_450.rds"))

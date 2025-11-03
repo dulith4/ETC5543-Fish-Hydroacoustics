@@ -33,7 +33,7 @@ save_h2o_artifacts <- function(model, tag, leaderboard = NULL, train = NULL, sav
   # --- MOJO (portable scoring) -----------------------------------------------
   # Write directly as 'model.mojo.zip' to avoid rename shenanigans
   mojo_zip <- file.path(dir_root, "model.mojo.zip")
-  # try direct write
+
   mojo_ok <- TRUE
   mojo_ret <- try(
     h2o.download_mojo(model, path = dir_write, filename = "model.mojo.zip", get_genmodel_jar = TRUE),
@@ -45,7 +45,6 @@ save_h2o_artifacts <- function(model, tag, leaderboard = NULL, train = NULL, sav
     # Some H2O versions return just a basename; ensure the file is really there
     mojo_found <- file.path(dir_write, basename("model.mojo.zip"))
     if (!file.exists(mojo_found)) {
-      # fallback: maybe H2O ignored filename; look for any *.zip just created
       zips <- list.files(dir_write, pattern = "\\.zip$", full.names = TRUE)
       if (length(zips)) {
         file.copy(zips[1], file.path(dir_write, "model.mojo.zip"), overwrite = TRUE)
@@ -64,7 +63,7 @@ save_h2o_artifacts <- function(model, tag, leaderboard = NULL, train = NULL, sav
     mojo_zip <- NULL
   }
   
-  # --- genmodel JAR (put it next to the MOJO) --------------------------------
+  # genmodel JAR (put it next to the MOJO) 
   genmodel_jar <- file.path(dir_root, "h2o-genmodel.jar")
   if (!file.exists(genmodel_jar)) {
     candidates <- c(
@@ -76,7 +75,7 @@ save_h2o_artifacts <- function(model, tag, leaderboard = NULL, train = NULL, sav
     if (!file.exists(genmodel_jar)) genmodel_jar <- NULL
   }
   
-  # --- Optional native binary (same-version reload only) ----------------------
+  # Optional native binary (same-version reload only) 
   binary_dir <- NULL
   if (isTRUE(save_binary)) {
     binary_dir <- file.path(dir_root, "h2o-binary")
@@ -85,14 +84,14 @@ save_h2o_artifacts <- function(model, tag, leaderboard = NULL, train = NULL, sav
     h2o.saveModel(model, path = .short_path(binary_dir), force = TRUE)
   }
   
-  # --- Leaderboard CSV (optional) --------------------------------------------
+  # Leaderboard CSV (optional) 
   leaderboard_csv <- NULL
   if (!is.null(leaderboard)) {
     leaderboard_csv <- file.path(dir_root, "leaderboard.csv")
     utils::write.csv(as.data.frame(leaderboard), leaderboard_csv, row.names = FALSE)
   }
   
-  # --- Metadata ---------------------------------------------------------------
+  # Metadata 
   meta <- list(
     tag = tag,
     saved_at = .ts(),
@@ -113,7 +112,7 @@ save_h2o_artifacts <- function(model, tag, leaderboard = NULL, train = NULL, sav
   writeLines(jsonlite::toJSON(meta, pretty = TRUE, auto_unbox = TRUE),
              file.path(dir_root, "meta.json"))
   
-  # --- README ----------------------------------------------------------------
+  #  README 
   readme <- c(
     "# Model Artifacts",
     glue("- Tag: {tag}"),

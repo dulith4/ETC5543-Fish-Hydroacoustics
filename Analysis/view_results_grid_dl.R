@@ -20,7 +20,7 @@ suppressPackageStartupMessages({
 }
 
 # Main viewer
-# variant ∈ { "quintiles_allfreq","quintiles_feats","median_allfreq","median_feats" }
+# variant  { "quintiles_allfreq","quintiles_feats","median_allfreq","median_feats" }
 # ts: optional timestamp "YYYYMMDD_HHMMSS". If NULL, uses newest artifacts.
 view_results_grid_dl <- function(variant, positive = "SMB", ts = NULL, root = here("outputs","tables")) {
   stopifnot(dir.exists(root))
@@ -74,8 +74,6 @@ view_results_grid_dl <- function(variant, positive = "SMB", ts = NULL, root = he
   
   # Grid summary table (top by AUC if present)
   if (!is.null(lb) && nrow(lb)) {
-    # normalise typical columns we saved
-    # choose a compact set of columns if available
     keep <- intersect(c("activation","adaptive_rate","balance_classes","epochs","epsilon",
                         "hidden","hidden_dropout_ratios","input_dropout_ratio",
                         "l1","l2","max_w2","rate","rate_annealing","rho",

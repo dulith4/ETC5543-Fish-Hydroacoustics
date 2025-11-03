@@ -17,7 +17,7 @@ dir.create("outputs/tables", recursive = TRUE, showWarnings = FALSE)
 dir.create("outputs/models", recursive = TRUE, showWarnings = FALSE)
 dir.create("figures",        recursive = TRUE, showWarnings = FALSE)
 
-# ---- Ensure backscatter per-ping splits exist (build if missing) ------------
+#Ensure backscatter per-ping splits exist (build if missing)
 builder <- here("Analysis","02a_check_transformations.R")
 train_rds    <- here("outputs","tables","train_backscatter_450.rds")
 validate_rds <- here("outputs","tables","validate_backscatter_450.rds")
@@ -38,7 +38,7 @@ test_df     <- readRDS(test_rds)
 freq_cols <- names(train_df)[stringr::str_detect(names(train_df), "^F\\d+(?:\\.\\d+)?$")]
 stopifnot(length(freq_cols) > 0)
 
-# ---- H2O frames --------------------------------------------------------------
+#H2O frames
 h2o.init()
 
 train_h2o <- as.h2o(dplyr::select(train_df, all_of(c("species", freq_cols))))
@@ -49,7 +49,7 @@ train_h2o[[y]] <- h2o.asfactor(train_h2o[[y]])
 valid_h2o[[y]] <- h2o.asfactor(valid_h2o[[y]])
 test_h2o[[y]]  <- h2o.asfactor(test_h2o[[y]])
 
-# ---- AutoML ------------------------------------------------------------------
+#AutoML 
 aml <- h2o.automl(
   x = x, y = y,
   training_frame    = train_h2o,
@@ -66,7 +66,7 @@ timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
 lb <- as.data.frame(aml@leaderboard)
 saveRDS(lb,  glue("outputs/tables/leaderboard_original_{timestamp}.rds"))
 
-# ---- VALID / TEST performance + F1 (clipped to policy window) ----
+#VALID / TEST performance + F1 (clipped to policy window) 
 perf_valid <- h2o.performance(leader, newdata = valid_h2o)
 perf_test  <- h2o.performance(leader, newdata = test_h2o)
 thr_v_raw  <- as.numeric(h2o.find_threshold_by_max_metric(perf_valid, "f1"))
@@ -74,7 +74,7 @@ thr_v_clip <- clamp_thr(thr_v_raw, 0.40, 0.70)
 acc_test_050  <- as.numeric(h2o.accuracy(perf_test, thresholds = 0.50))
 acc_test_clip <- as.numeric(h2o.accuracy(perf_test, thresholds = thr_v_clip))
 
-# ---- Predictions (TRAIN/VALID/TEST) -----------------------------------------
+#Predictions (TRAIN/VALID/TEST) 
 pred_valid <- as.data.frame(h2o.predict(leader, valid_h2o)) |>
   dplyr::bind_cols(species = as.character(as.data.frame(valid_h2o)$species))
 pred_test <- as.data.frame(h2o.predict(leader, test_h2o)) |>
@@ -82,12 +82,12 @@ pred_test <- as.data.frame(h2o.predict(leader, test_h2o)) |>
 pred_train <- as.data.frame(h2o.predict(leader, train_h2o)) |>
   dplyr::bind_cols(species = as.character(as.data.frame(train_h2o)$species))
 
-# Save with names expected by viewer
+# Save with names
 readr::write_rds(as_tibble(pred_train), glue("outputs/tables/preds_original_train_{timestamp}.rds"))
 readr::write_rds(as_tibble(pred_valid), glue("outputs/tables/preds_original_valid_{timestamp}.rds"))
 readr::write_rds(as_tibble(pred_test),  glue("outputs/tables/preds_original_{timestamp}.rds"))  # test
 
-# ---- Policy threshold = VALID max-ACC, clamped [0.40, 0.70] -----------------
+#Policy threshold = VALID max-ACC, clamped [0.40, 0.70]
 pc <- prob_col(pred_valid, positive = "SMB")
 thr_policy_raw  <- thr_max_acc(truth = pred_valid$species, prob = pred_valid[[pc]], positive = "SMB")
 thr_policy_clip <- clamp_thr(thr_policy_raw, 0.40, 0.70)
@@ -96,7 +96,7 @@ acc_train_policy <- acc_threshold(pred_train$species, pred_train[[pc]], thr_poli
 acc_valid_policy <- acc_threshold(pred_valid$species, pred_valid[[pc]], thr_policy_clip, positive = "SMB")
 acc_test_policy  <- acc_threshold(pred_test$species,  pred_test[[pc]],  thr_policy_clip, positive = "SMB")
 
-# ---- Save best model artifacts (MOJO + binary) with metadata -----------------
+#Save best model artifacts (MOJO + binary) with metadata 
 lb_full <- h2o.get_leaderboard(aml, extra_columns = "ALL")
 save_h2o_artifacts(
   model       = leader,
@@ -107,7 +107,7 @@ save_h2o_artifacts(
   extras      = list(policy_thr = thr_policy_clip, clamp = c(0.40, 0.70), positive_class = "SMB")
 )
 
-# ---- Metrics JSON (incl. policy) --------------------------------------------
+#Metrics JSON (incl. policy)
 metrics_path <- glue("outputs/tables/automl_metrics_original_{timestamp}.json")
 readr::write_file(
   jsonlite::toJSON(list(

@@ -20,7 +20,7 @@ dir.create("figures", showWarnings = FALSE)
 seed <- 20250904
 timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
 
-# ---------------- Ensure quintile features exist ----------------
+# Ensure quintile features exist
 quintile_rds <- here("outputs", "tables", "fish_freq_quintiles_long.rds")
 builder_r    <- here("Analysis", "02b_fish_quantiles.R")
 if (!file.exists(quintile_rds)) {
@@ -29,7 +29,7 @@ if (!file.exists(quintile_rds)) {
   if (!file.exists(quintile_rds)) stop("Expected file not created: ", quintile_rds)
 }
 
-# ---------------- Load & split ----------------
+#Load & split 
 dat <- readRDS(quintile_rds) |>
   mutate(
     species  = fct_drop(as.factor(species)),
@@ -74,12 +74,12 @@ train_df <- dat_s |> filter(split == "train") |> select(all_of(cols_keep))
 valid_df <- dat_s |> filter(split == "valid") |> select(all_of(cols_keep))
 test_df  <- dat_s |> filter(split == "test")  |> select(all_of(cols_keep))
 
-# ---------------- H2O lifecycle helpers ----------------
+#H2O lifecycle helpers
 h2o_up <- function() !is.null(tryCatch(h2o.getConnection(), error = function(e) NULL))
 start_or_reuse_h2o <- function(heap = "6G") { if (!h2o_up()) h2o.init(nthreads = -1, max_mem_size = heap); invisible(TRUE) }
 restart_h2o <- function(heap = "6G") { try(h2o.shutdown(prompt = FALSE), silent = TRUE); Sys.sleep(2); h2o.init(nthreads = -1, max_mem_size = heap); invisible(TRUE) }
 
-# ---------------- One run (pure R data.frames -> H2O) ----------------
+# One run (pure R data.frames -> H2O) 
 run_once <- function(train_df, valid_df, test_df, runtime_secs = 300, seed = 20250904, positive = "SMB") {
   start_or_reuse_h2o("6G"); h2o.removeAll()
   
@@ -177,7 +177,7 @@ run_once <- function(train_df, valid_df, test_df, runtime_secs = 300, seed = 202
   invisible(TRUE)
 }
 
-# ---------------- Retry wrapper (handles CURL timeouts cleanly) ---------------
+# Retry wrapper (handles CURL timeouts cleanly)
 safe_run <- function(...) {
   tryCatch(
     run_once(...),
@@ -190,6 +190,6 @@ safe_run <- function(...) {
   )
 }
 
-# ---------------- Go ----------------------------------------------------------
+# Go
 safe_run(train_df, valid_df, test_df, runtime_secs = 300, seed = seed, positive = "SMB")
 message("\nQuintiles AutoML complete. Tables/metrics saved; MOJO under outputs/models/fish_ping/.\n")

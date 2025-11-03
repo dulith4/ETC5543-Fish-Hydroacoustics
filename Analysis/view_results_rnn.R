@@ -3,10 +3,10 @@
 # ==============================================================================
 
 suppressPackageStartupMessages({
-  library(jsonlite)  # for fromJSON
+  library(jsonlite)  
 })
 
-# ---- helpers -----------------------------------------------------------------
+#helpers 
 
 .latest_any <- function(dirs, pattern) {
   files <- unlist(lapply(dirs, function(d) {
@@ -22,7 +22,6 @@ auc_from_probs <- function(truth, prob, positive = "SMB") {
   ord <- order(prob, decreasing = TRUE)
   tp <- cumsum(y[ord]); fp <- cumsum(1 - y[ord])
   tpr <- tp / sum(y);   fpr <- fp / sum(1 - y)
-  # prepend origin for trapezoid rule
   tpr <- c(0, tpr); fpr <- c(0, fpr)
   sum(diff(fpr) * (head(tpr, -1) + tail(tpr, -1)) / 2)
 }
@@ -46,7 +45,7 @@ show_roc_rnn <- function(open = TRUE) {
   invisible(p)
 }
 
-# ---- loaders -----------------------------------------------------------------
+# loaders 
 
 load_rnn_metrics <- function() {
   p <- .latest_any("outputs/tables", "^rnn_metrics_(\\d{6}|\\d{8})_\\d{6}\\.json$")
@@ -75,7 +74,7 @@ load_rnn_preds <- function(optional = TRUE) {
   stop("No RNN predictions found.")
 }
 
-# ---- main viewer -------------------------------------------------------------
+# main viewer
 
 view_results_rnn <- function(open_roc = TRUE, positive = "SMB", thr = NULL) {
   m  <- load_rnn_metrics()
@@ -128,7 +127,7 @@ view_results_rnn <- function(open_roc = TRUE, positive = "SMB", thr = NULL) {
   invisible(TRUE)
 }
 
-# ---- auto-run when sourced ---------------------------------------------------
+# auto-run when sourced 
 if (interactive() || sys.nframe() <= 1) {
   view_results_rnn(open_roc = TRUE, positive = "SMB", thr = NULL)
 }
